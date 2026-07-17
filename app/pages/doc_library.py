@@ -30,9 +30,15 @@ async def doc_library_page(
     user_id: uuid.UUID | None = Depends(current_user_id_optional),
     db: AsyncSession = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
+    """Redirects to the Host's `/login` when unauthenticated; otherwise renders the empty-state
+    page with the shared chrome, reading `dark_mode` from the Host's own stored preference.
+    """
     if user_id is None:
         return RedirectResponse("/login", status_code=302)
 
+    # host_user is None only in the defensive case get_host_user() already handles (a JWT for a
+    # Host user id that no longer resolves to a row) - falls back to light mode, same as a user
+    # who has never set the preference.
     host_user = await get_host_user(db, user_id)
     context = {
         "dark_mode": host_user.dark_mode if host_user is not None else False,
