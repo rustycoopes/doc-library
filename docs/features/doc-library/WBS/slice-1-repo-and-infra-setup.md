@@ -45,16 +45,16 @@ None — can start immediately.
 
 ## Acceptance criteria
 
-- [ ] `doc-library` repo exists with a working CI/CD pipeline (build, test, deploy stages all
+- [x] `doc-library` repo exists with a working CI/CD pipeline (build, test, deploy stages all
       green).
-- [ ] A deploy of the skeleton app succeeds and the health-check route responds at the Cloud
+- [x] A deploy of the skeleton app succeeds and the health-check route responds at the Cloud
       Run `*.run.app` URL for `doc-library-qa`.
-- [ ] `GCP_SA_KEY`, `SUPABASE_QA_URL`, `SUPABASE_PROD_URL` are set as GitHub Actions secrets in
+- [x] `GCP_SA_KEY`, `SUPABASE_QA_URL`, `SUPABASE_PROD_URL` are set as GitHub Actions secrets in
       the new repo (not inherited from the Host repo).
-- [ ] `doc_library` Postgres schema exists with its own independent Alembic history
+- [x] `doc_library` Postgres schema exists with its own independent Alembic history
       (`version_table_schema=doc_library`), verified by running an empty migration successfully.
-- [ ] `doc_library`'s migration role has confirmed `REFERENCES` privilege on `host.users`.
-- [ ] `ENCRYPTION_KEY` is confirmed unnecessary and explicitly noted as such in the new repo's own
+- [x] `doc_library`'s migration role has confirmed `REFERENCES` privilege on `host.users`.
+- [x] `ENCRYPTION_KEY` is confirmed unnecessary and explicitly noted as such in the new repo's own
       setup docs (e.g. its README or an equivalent doc), not silently omitted.
 
 ## Testing
@@ -66,3 +66,48 @@ meaningful yet since there's no feature code — `tests/test_health.py` (a trivi
 matching `event-creator`'s own `tests/test_health.py`) is the only test this slice needs.
 
 <!-- /to-implementation appends a "## Delivered" section here once this slice ships. -->
+
+## Delivered (2026-07-17, issue #1, branch `feature/slice-1-infra-finish`)
+
+The initial repo scaffold (app skeleton, CI/CD workflows, GitHub Actions secrets) had already
+landed directly on `main` via `/new-hosted-app` (commit 817fbe3) before this issue's
+`/to-implementation` pass started; this slice's work was finishing the remaining acceptance
+criteria on top of that scaffold:
+
+- Added the missing `uv.lock` — the scaffold commit omitted it, which broke `uv sync --frozen` in
+  both CI and the Dockerfile and caused the first `Deploy` run on `main` to fail outright.
+- Added `migrations/versions/0001_create_doc_library_schema.py`: creates the `doc_library`
+  schema, a `doc_library_app` role, and the R1-pattern `REFERENCES`-only grant on `host.users`
+  (TDD Open Question #2) — confirmed against organize-me's own R1 migration
+  (`d4e5f6a7b8c9_schema_separation_host_event_creator.py`) as the source of the grant pattern.
+  Unlike `event-creator`'s baseline migration (a no-op adopting tables already moved by
+  organize-me's R1), this is real DDL since `doc_library` never existed in any monolith.
+- **Diverged from plan:** hit a chicken-and-egg bug not anticipated in the WBS — Alembic creates
+  its own version table in `version_table_schema` *before* running the first migration, so on a
+  brand-new database `alembic upgrade head` failed with `InvalidSchemaNameError: schema
+  "doc_library" does not exist` even though migration 0001 itself creates that schema. Fixed by
+  having `migrations/env.py` run `CREATE SCHEMA IF NOT EXISTS doc_library` before configuring the
+  Alembic context, ahead of any migration.
+- **Diverged from plan:** the `doc-library` GCP Artifact Registry repo didn't exist yet (only
+  `event-creator` and `organizeme` did), so the first `deploy-qa` run failed at `docker push` with
+  `Repository "doc-library" not found`. Created it manually
+  (`gcloud artifacts repositories create doc-library ...`, Docker format, same region as the
+  others) — not called out as a manual step in the TDD's playbook, worth adding there.
+- Added `.env.local.example` and documented in the README that `ENCRYPTION_KEY` is deliberately
+  unneeded (no third-party credentials stored) — matches TDD manual-setup step A.5.
+- Removed a stray `ENCRYPTION_KEY` GitHub Actions secret that had been set on the repo by the
+  scaffold step (unused anywhere in code/workflows) to keep the secret set consistent with "no
+  `ENCRYPTION_KEY`" being a deliberate, documented choice rather than a silent leftover.
+- Added `github-sa-key.json` / `*-sa-key.json` to `.gitignore` — a local SA-key file used to seed
+  `GCP_SA_KEY` was sitting untracked in the repo root, one `git add -A` away from being committed.
+
+All six acceptance criteria verified: CI green (test + deploy-qa) on PR #6, `GET
+https://doc-library-qa-n7cbjtsj5a-nn.a.run.app/health` → `200 {"status": "ok"}`, all three
+GitHub Actions secrets confirmed present, `doc_library` schema/Alembic history confirmed via the
+CI `alembic upgrade head` step, `REFERENCES` grant confirmed via migration 0001, `ENCRYPTION_KEY`
+omission documented in the README, and the shared deploy SA's `secretmanager.secretAccessor`
+grant on `jwt-secret-{qa,prod}` confirmed via `gcloud secrets get-iam-policy`.
+
+Code review (code-review-master + code-quality-guardian) found no blocking issues; three
+non-blocking hardening/cleanup suggestions were filed as issue #7 (`modelsuggested` label) rather
+than actioned in this slice.
