@@ -1,7 +1,7 @@
 import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -72,6 +72,12 @@ async def run_async_migrations() -> None:
     )
 
     async with connectable.connect() as connection:
+        # Alembic creates its own version table (in VERSION_TABLE_SCHEMA) before running any
+        # migration, including the very first one — so on a brand-new database the schema has
+        # to exist before Alembic ever gets a chance to run 0001_create_doc_library_schema's own
+        # `CREATE SCHEMA IF NOT EXISTS`. Idempotent, so this is a no-op on every later run.
+        await connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {VERSION_TABLE_SCHEMA}"))
+        await connection.commit()
         await connection.run_sync(do_run_migrations)
 
     await connectable.dispose()
