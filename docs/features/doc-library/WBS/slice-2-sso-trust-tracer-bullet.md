@@ -48,16 +48,58 @@ already deployed (Slice 1) — order is strictly deploy service → merge regist
 
 ## Acceptance criteria
 
-- [ ] Unauthenticated `GET https://organizeme.qa.russcoopersoftware.com/doc-library` redirects to
+- [x] Unauthenticated `GET https://organizeme.qa.russcoopersoftware.com/doc-library` redirects to
       the Host's `/login`.
-- [ ] Authenticated request renders the empty-state page with the shared sidebar/header chrome,
+- [x] Authenticated request renders the empty-state page with the shared sidebar/header chrome,
       "Doc Library" present in the sidebar nav.
-- [ ] A user with `dark_mode=true` in their Host Profile sees the page rendered in dark mode (not
+- [x] A user with `dark_mode=true` in their Host Profile sees the page rendered in dark mode (not
       hardcoded light).
-- [ ] A tampered/garbage `organizeme_auth` cookie value is rejected (treated as unauthenticated),
+- [x] A tampered/garbage `organizeme_auth` cookie value is rejected (treated as unauthenticated),
       not trusted.
-- [ ] `organizeme-chrome` pin in the new repo matches the registry entry actually live in
+- [x] `organizeme-chrome` pin in the new repo matches the registry entry actually live in
       `organize-me`'s `main` at time of merge (no stale-pin gap per the R6/R11 gotcha).
+
+## Delivered
+
+**Issue:** #2 · **Branch:** `feature/slice-2-sso-trust` · **Date:** 2026-07-17
+
+Shipped the full cross-repo trust seam: `GET /doc-library` in the new `doc-library` repo, wired to
+the shared `organizeme-chrome` templates/nav, trusting the Host-issued `organizeme_auth` JWT
+(signature + expiry only, no network call). `HostUser` is a SELECT-only cross-schema mapping onto
+`host.users` reading `dark_mode`; `sidebar_nav_context` merges the registry-driven nav. Host-side
+registry entry (`doc-library` `AppEntry`) added in `organize-me` PR #214 (merged, tag
+`chrome-v0.5.5`), and `doc-library`'s own pin bumped to match in PR #8.
+
+**Diverged from plan — hit the R6/R11 gotcha again:** after merging PR #214 and cutting
+`chrome-v0.5.5`, `provision.sh` + `generate_url_map.py` kept emitting a URL map *without* the new
+`doc-library-backend` path rule. Root cause: `organize-me`'s own root `pyproject.toml` carries a
+**separate** git-tag pin of `organizeme-chrome` from `packages/chrome/pyproject.toml`'s version
+field — bumping the registry and cutting the tag does not, by itself, update what the Host's own
+generator script resolves at `uv run` time. Fixed by bumping the root pin to `chrome-v0.5.5`
+directly on `organize-me main` (commit `d97a639`, a minor/direct-to-main fix per its own CLAUDE.md)
+and re-running `provision.sh`, which regenerated and re-imported the URL map correctly. Confirmed
+via `gcloud compute url-maps describe organizeme-qa-url-map --global` showing the `/doc-library`,
+`/api/v1/doc-links(/*)`, `/doc-library/fragments(/*)` path rules routed to `doc-library-backend`.
+
+**Live verification against `https://organizeme.qa.russcoopersoftware.com/doc-library`** (after
+allowing a few minutes for GFE edge propagation of the URL map update):
+- Unauthenticated `GET` → `302` to `/login` (relative `Location: /login`, correctly routed back to
+  the Host through the shared LB).
+- Garbage/tampered `organizeme_auth` cookie (`garbage.not.a.jwt`) → still `302` to `/login`, not a
+  500 or a trusted session — confirms `verify_token` rejects malformed tokens rather than throwing.
+- `event-creator`'s `/dashboard` and the Host's `/login` continued routing correctly through the
+  same LB/URL map, confirming the re-provision didn't regress existing routing.
+
+Authenticated-rendering criteria (shared chrome + nav entry + `dark_mode` true/false) were not
+re-verified against a live OAuth session — no QA test credentials were available for browser
+login — but are covered by `tests/test_doc_library_page.py`'s 13 cases (dark-mode true/false
+rendering, sidebar nav-link presence, plus the full auth-rejection matrix: expired, tampered,
+garbage, wrong-audience, missing-sub, non-UUID-sub, `alg=none`), all green in CI on PR #8.
+
+Code review (code-review-master + code-quality-guardian): no blockers. One fix applied inline
+(docstring clarity on the redirect route, commit `ffec35d`). Two non-blocking suggestions
+(no runtime write-guard against accidental writes through the read-only `HostUser` mapping; 302 vs
+303 redirect status) filed to Intake as issue #9.
 
 ## Testing
 
