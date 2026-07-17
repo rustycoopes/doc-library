@@ -13,6 +13,7 @@ plus the narrow REFERENCES-only grant on host.users the R1 pattern uses for cros
 must never be able to SELECT host.users, only reference it from a FK. No tables yet; those land
 in a later slice once app/models/ has something to create.
 """
+
 from collections.abc import Sequence
 
 from alembic import op
@@ -57,7 +58,8 @@ def downgrade() -> None:
     op.execute("REVOKE REFERENCES ON host.users FROM doc_library_app")
     op.execute("REVOKE USAGE ON SCHEMA host FROM doc_library_app")
     op.execute(
-        "ALTER DEFAULT PRIVILEGES IN SCHEMA doc_library REVOKE ALL ON SEQUENCES FROM doc_library_app"
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA doc_library "
+        "REVOKE ALL ON SEQUENCES FROM doc_library_app"
     )
     op.execute(
         "ALTER DEFAULT PRIVILEGES IN SCHEMA doc_library REVOKE ALL ON TABLES FROM doc_library_app"

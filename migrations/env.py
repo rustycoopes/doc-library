@@ -76,7 +76,7 @@ async def run_async_migrations() -> None:
         # migration, including the very first one — so on a brand-new database the schema has
         # to exist before Alembic ever gets a chance to run 0001_create_doc_library_schema's own
         # `CREATE SCHEMA IF NOT EXISTS`. Idempotent, so this is a no-op on every later run.
-        await connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {VERSION_TABLE_SCHEMA}"))
+        await connection.execute(text("CREATE SCHEMA IF NOT EXISTS doc_library"))
         await connection.commit()
         await connection.run_sync(do_run_migrations)
 
