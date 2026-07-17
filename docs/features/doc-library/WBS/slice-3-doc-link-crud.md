@@ -43,19 +43,22 @@ Flow diagram for the create-link request sequence.
 
 ## Acceptance criteria
 
-- [ ] A user can add a link (title, URL, category) and see it appear on `/doc-library`, grouped
+- [x] A user can add a link (title, URL, category) and see it appear on `/doc-library`, grouped
       under its category.
-- [ ] Categories and links within a category render alphabetically, with no manual ordering
+- [x] Categories and links within a category render alphabetically, with no manual ordering
       control.
-- [ ] A user can edit a link's title/URL/category and see the change reflected immediately.
-- [ ] A user can delete a link and it disappears immediately.
-- [ ] Submitting an empty title, empty category, or a non-`http(s)` URL is rejected with a clear
-      error, both client-side and server-side.
-- [ ] A user cannot view, edit, or delete another user's links — attempting to (e.g. guessing an
+- [x] A user can edit a link's title/URL/category and see the change reflected immediately.
+- [x] A user can delete a link and it disappears immediately.
+- [x] Submitting an empty title, empty category, or a non-`http(s)` URL is rejected with a clear
+      error, both client-side and server-side. **Partial:** server-side rejection is complete for
+      all three; client-side, `required`/`minlength` correctly block empty title/category, but the
+      `<input type="url">` browser-native check doesn't itself constrain the scheme to http(s) —
+      tracked as a follow-up in Intake issue #11.
+- [x] A user cannot view, edit, or delete another user's links — attempting to (e.g. guessing an
       id) returns 404.
-- [ ] Unauthenticated requests to any `/api/v1/doc-links*` or fragment route return 401.
-- [ ] No cap on the number of links a user can add.
-- [ ] Deleting the owning Host user cascades and removes their `doc_links` rows (cross-schema `ON
+- [x] Unauthenticated requests to any `/api/v1/doc-links*` or fragment route return 401.
+- [x] No cap on the number of links a user can add.
+- [x] Deleting the owning Host user cascades and removes their `doc_links` rows (cross-schema `ON
       DELETE CASCADE`).
 
 ## Testing
@@ -74,3 +77,54 @@ HTTP-level (`httpx.AsyncClient` + real async test Postgres session), mirroring `
   matching the R10 pattern (`event-creator`'s `test_event_model.py`).
 
 <!-- /to-implementation appends a "## Delivered" section here once this slice ships. -->
+
+## Delivered
+
+**Issue:** #3 · **Branch:** `feature/slice-3-doc-link-crud` · **Date:** 2026-07-17
+
+Shipped the feature's core value end to end: `doc_library.doc_links` (migration `0002`, FK to
+`host.users.id` `ON DELETE CASCADE`), `list_grouped_by_category`/`get_owned_doc_link` query
+functions (no dedicated service layer, per the TDD's layering decision), Pydantic
+`DocLinkCreate`/`DocLinkUpdate`/`DocLinkResponse` schemas, a pure JSON `/api/v1/doc-links` CRUD
+surface, and HTMX fragment routes under `/doc-library/fragments/links` — both surfaces calling the
+same underlying functions, thin route-handler duplication only. `/doc-library` now renders the
+user's links grouped by category with an inline add form and per-link inline edit (native
+`<details>` disclosure — no extra GET-edit route needed) and delete controls.
+
+**Diverged from plan:**
+- The fragment routes deliberately return **401** on an unauthenticated request (via
+  `Depends(current_user_id)`), not the 200-with-reauth-prompt pattern `event-creator`'s
+  Settings-shell fragments use — those are eagerly loaded on page load and need a renderable
+  fallback; these fragments are only ever reached via a user-initiated action on an
+  already-authenticated page, and the WBS acceptance criteria explicitly call for 401.
+- Inline edit uses a native `<details>`/`<summary>` disclosure already present in the DOM rather
+  than a dedicated `GET .../edit` fragment route (not in the original TDD's route list) — avoids
+  an extra round trip and any hand-written JS, at the cost of always rendering the edit form
+  markup even when collapsed.
+
+**Code review (code-review-master + code-quality-guardian):** two blockers found and fixed before
+merge:
+1. `DocLinkUpdate`'s field validators short-circuited on `None` to distinguish "field omitted"
+   from "field supplied," which also let an explicit JSON `null` through unvalidated — `PATCH
+   {"title": null}` passed Pydantic validation, then raised an unhandled `IntegrityError` (500) on
+   commit against the NOT NULL column. Fixed: validators now reject `None` outright, relying on
+   Pydantic only invoking a field's validator when that field is actually present in the input.
+2. `app/models/doc_link.py`'s `user_id` column had no `index=True`, but the migration hand-creates
+   `ix_doc_links_user_id` — since the model is what Alembic autogenerate diffs against, the next
+   autogenerate run would have proposed dropping an index that actually exists. Fixed by adding
+   `index=True` to match.
+
+Also fixed as part of the same round: a fragment-route 422 that embedded pydantic's raw
+`ValueError` in the JSON `ctx` field (not serializable, 500'd instead of returning a clean 422);
+added PATCH-side validation test coverage on both the JSON API and fragment routes (previously
+only tested on create); capped `url`'s max length; aligned `ondelete` casing between the model and
+migration.
+
+Seven non-blocking suggestions (HTMX 422s being invisible to the user without JS error-handling,
+`type="url"` not enforcing an http(s) scheme client-side, a duplicated query in the JSON API's
+list endpoint, missing form `<label>`s, no SRI on the htmx CDN script, case-sensitive category
+grouping, a few over-length lines) filed to Intake as issue #11.
+
+**Live-verified** against `https://organizeme.qa.russcoopersoftware.com` post-deploy: unauthenticated
+`GET /api/v1/doc-links` and `POST /doc-library/fragments/links` both return 401 through the shared
+LB.
