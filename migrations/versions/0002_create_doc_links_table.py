@@ -32,7 +32,7 @@ def upgrade() -> None:
         sa.Column("category", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.ForeignKeyConstraint(
-            ["user_id"], ["host.users.id"], ondelete="CASCADE", name="fk_doc_links_user_id"
+            ["user_id"], ["host.users.id"], ondelete="cascade", name="fk_doc_links_user_id"
         ),
         schema="doc_library",
     )

@@ -136,6 +136,40 @@ async def test_patch_updates_fields_and_returns_200(
     assert response.json()["title"] == "New Title"
 
 
+async def test_patch_rejects_explicit_null_title_with_422_not_500(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    # Regression test: DocLinkUpdate's fields are `str | None` so a field can be *omitted*
+    # ("not supplied"), but an explicit JSON null must still be rejected, not silently applied -
+    # title/category/url are all NOT NULL columns, so letting null through used to 500 on commit.
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    doc_link_id = await create_doc_link(db_session, user_id=user_id)
+
+    response = await client.patch(
+        f"/api/v1/doc-links/{doc_link_id}",
+        json={"title": None},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_create_rejects_javascript_scheme_url(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+
+    response = await client.post(
+        "/api/v1/doc-links",
+        json={"title": "T", "url": "javascript:alert(1)", "category": "C"},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 422
+
+
 async def test_patch_nonexistent_id_returns_404(
     client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
 ) -> None:
