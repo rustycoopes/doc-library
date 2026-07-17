@@ -14,6 +14,12 @@ uv sync --group dev
 Copy `.env.local.example` to `.env.local` (never commit `.env.local` — see `.gitignore`) and fill
 in `DATABASE_URL`/`JWT_SECRET` for local development against the QA Supabase database.
 
+**No `ENCRYPTION_KEY`.** Doc Library stores no third-party credentials (no OAuth tokens, no
+storage-provider connections) — unlike `event-creator`, which uses it to encrypt stored
+`storage_configs` rows. This is a deliberate omission per the TDD, not an oversight: don't add it
+to `.env.local.example`, GitHub Actions secrets, or any `--set-secrets` flag by copying the
+`event-creator` example.
+
 ## Running locally
 
 ```
