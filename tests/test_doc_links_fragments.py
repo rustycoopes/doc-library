@@ -83,6 +83,66 @@ async def test_edit_fragment_returns_rerendered_list_with_updated_link(
     assert "Old Name" not in response.text
 
 
+async def test_edit_fragment_rejects_empty_title(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    doc_link_id = await create_doc_link(db_session, user_id=user_id)
+
+    response = await client.patch(
+        f"/doc-library/fragments/links/{doc_link_id}",
+        data={"title": "   ", "url": "https://example.com", "category": "General"},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_edit_fragment_rejects_invalid_url(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    doc_link_id = await create_doc_link(db_session, user_id=user_id)
+
+    response = await client.patch(
+        f"/doc-library/fragments/links/{doc_link_id}",
+        data={"title": "T", "url": "not-a-url", "category": "General"},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_edit_fragment_nonexistent_id_returns_404(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+
+    response = await client.patch(
+        f"/doc-library/fragments/links/{uuid.uuid4()}",
+        data={"title": "T", "url": "https://example.com", "category": "General"},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 404
+
+
+async def test_delete_fragment_nonexistent_id_returns_404(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+
+    response = await client.delete(
+        f"/doc-library/fragments/links/{uuid.uuid4()}", cookies={"organizeme_auth": token}
+    )
+
+    assert response.status_code == 404
+
+
 async def test_edit_fragment_another_users_link_returns_404(
     client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
 ) -> None:

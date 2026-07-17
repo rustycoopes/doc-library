@@ -170,6 +170,54 @@ async def test_create_rejects_javascript_scheme_url(
     assert response.status_code == 422
 
 
+async def test_patch_rejects_empty_title(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    doc_link_id = await create_doc_link(db_session, user_id=user_id)
+
+    response = await client.patch(
+        f"/api/v1/doc-links/{doc_link_id}",
+        json={"title": "   "},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_patch_rejects_empty_category(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    doc_link_id = await create_doc_link(db_session, user_id=user_id)
+
+    response = await client.patch(
+        f"/api/v1/doc-links/{doc_link_id}",
+        json={"category": "   "},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_patch_rejects_non_http_url(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    doc_link_id = await create_doc_link(db_session, user_id=user_id)
+
+    response = await client.patch(
+        f"/api/v1/doc-links/{doc_link_id}",
+        json={"url": "ftp://example.com/file"},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 422
+
+
 async def test_patch_nonexistent_id_returns_404(
     client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
 ) -> None:

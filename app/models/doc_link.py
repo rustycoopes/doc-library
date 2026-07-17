@@ -21,8 +21,12 @@ class DocLink(Base):
     __table_args__ = {"schema": "doc_library"}
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    # index=True must match the migration's hand-created ix_doc_links_user_id (see
+    # migrations/versions/0002_create_doc_links_table.py) - the model is what Alembic
+    # autogenerate diffs future revisions against, so without this the next
+    # `alembic revision --autogenerate` would propose dropping that index.
     user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("host.users.id", ondelete="cascade"), nullable=False
+        Uuid, ForeignKey("host.users.id", ondelete="cascade"), nullable=False, index=True
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
