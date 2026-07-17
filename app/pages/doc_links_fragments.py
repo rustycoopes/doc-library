@@ -47,8 +47,12 @@ async def create_link_fragment(
     try:
         payload = DocLinkCreate(title=title, url=url, category=category)
     except ValidationError as exc:
+        # include_context=False: pydantic's raw .errors() embeds the original exception object
+        # (e.g. the ValueError our own field_validator raised) under "ctx" - not JSON-serializable
+        # by FastAPI's default encoder, unlike RequestValidationError's own handling of this.
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=exc.errors()
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=exc.errors(include_context=False),
         ) from exc
     db.add(DocLink(user_id=user_id, title=payload.title, url=payload.url, category=payload.category))
     await db.commit()
@@ -71,8 +75,12 @@ async def update_link_fragment(
     try:
         payload = DocLinkUpdate(title=title, url=url, category=category)
     except ValidationError as exc:
+        # include_context=False: pydantic's raw .errors() embeds the original exception object
+        # (e.g. the ValueError our own field_validator raised) under "ctx" - not JSON-serializable
+        # by FastAPI's default encoder, unlike RequestValidationError's own handling of this.
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=exc.errors()
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=exc.errors(include_context=False),
         ) from exc
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(doc_link, field, value)
