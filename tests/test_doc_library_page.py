@@ -7,7 +7,7 @@ seam end to end before any real feature logic is built.
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import TokenFactory, create_host_user
+from tests.conftest import TokenFactory, create_doc_link, create_host_user
 
 
 async def test_valid_host_jwt_renders_the_empty_state_page(
@@ -157,3 +157,33 @@ async def test_doc_library_present_in_sidebar_nav(
 
     assert response.status_code == 200
     assert 'href="/doc-library"' in response.text
+
+
+async def test_page_renders_links_grouped_by_category(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    await create_doc_link(db_session, user_id=user_id, title="Zebra Guide", category="Beta")
+    await create_doc_link(db_session, user_id=user_id, title="Apple Guide", category="Alpha")
+
+    response = await client.get("/doc-library", cookies={"organizeme_auth": token})
+
+    assert response.status_code == 200
+    assert "No links saved yet" not in response.text
+    assert "Alpha" in response.text
+    assert "Beta" in response.text
+    # Alpha's category heading appears before Beta's - alphabetical category ordering.
+    assert response.text.index("Alpha") < response.text.index("Beta")
+
+
+async def test_page_still_shows_empty_state_with_zero_links(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+
+    response = await client.get("/doc-library", cookies={"organizeme_auth": token})
+
+    assert response.status_code == 200
+    assert "No links saved yet" in response.text

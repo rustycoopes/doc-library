@@ -147,6 +147,24 @@ async def create_host_user(
     return user_id
 
 
+async def create_doc_link(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    title: str = "Example",
+    url: str = "https://example.com",
+    category: str = "General",
+) -> uuid.UUID:
+    """Insert a `doc_library.doc_links` row directly, bypassing the API - for seeding ownership
+    tests and the cascade-delete test with a row already attached to a known user."""
+    from app.models.doc_link import DocLink
+
+    doc_link = DocLink(user_id=user_id, title=title, url=url, category=category)
+    session.add(doc_link)
+    await session.flush()
+    return doc_link.id
+
+
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
     """httpx client for endpoint tests, wired to the same rolled-back db_session.

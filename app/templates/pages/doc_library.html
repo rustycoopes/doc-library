@@ -2,15 +2,49 @@
 
 {% block title %}Doc Library{% endblock %}
 
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.12/dist/htmx.min.js"></script>
+{% endblock %}
+
 {% block page %}
 <div class="mx-auto max-w-2xl">
   <h1 class="text-2xl font-bold">Doc Library</h1>
 
-  {# Slice 2 tracer bullet: no doc links exist yet - Slice 3 adds create/list/edit/delete. This
-     empty state only proves the page is reachable through the shared chrome/auth seam. #}
-  <div class="mt-6 flex flex-col items-center gap-3 rounded-lg border border-dashed border-base-300 p-8 text-center">
-    <p class="font-medium">No links saved yet.</p>
-    <p class="text-sm opacity-70">Your saved documentation links will show up here.</p>
-  </div>
+  <form
+    class="mt-4 flex flex-col gap-2 rounded-lg border border-base-300 p-4"
+    hx-post="/doc-library/fragments/links"
+    hx-target="#doc-links-list"
+    hx-swap="outerHTML"
+    hx-on::after-request="if(event.detail.successful) this.reset()"
+  >
+    <input
+      type="text"
+      name="title"
+      required
+      minlength="1"
+      maxlength="200"
+      class="input input-bordered input-sm"
+      placeholder="Title"
+    />
+    <input
+      type="url"
+      name="url"
+      required
+      class="input input-bordered input-sm"
+      placeholder="https://..."
+    />
+    <input
+      type="text"
+      name="category"
+      required
+      minlength="1"
+      maxlength="100"
+      class="input input-bordered input-sm"
+      placeholder="Category"
+    />
+    <button type="submit" class="btn btn-sm btn-primary">Add link</button>
+  </form>
+
+  {% include "partials/doc_links_list.html" %}
 </div>
 {% endblock %}
