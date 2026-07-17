@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.pages.doc_library import router as doc_library_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -15,10 +17,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Doc Library", lifespan=lifespan)
-
-# Register page and API routers here as they're built, e.g.:
-#   from app.pages.home import router as home_router
-#   app.include_router(home_router)
+app.include_router(doc_library_router)
 
 
 @app.get("/health")

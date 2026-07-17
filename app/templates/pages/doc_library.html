@@ -1,0 +1,16 @@
+{% extends "chrome_authenticated_base.html" %}
+
+{% block title %}Doc Library{% endblock %}
+
+{% block page %}
+<div class="mx-auto max-w-2xl">
+  <h1 class="text-2xl font-bold">Doc Library</h1>
+
+  {# Slice 2 tracer bullet: no doc links exist yet - Slice 3 adds create/list/edit/delete. This
+     empty state only proves the page is reachable through the shared chrome/auth seam. #}
+  <div class="mt-6 flex flex-col items-center gap-3 rounded-lg border border-dashed border-base-300 p-8 text-center">
+    <p class="font-medium">No links saved yet.</p>
+    <p class="text-sm opacity-70">Your saved documentation links will show up here.</p>
+  </div>
+</div>
+{% endblock %}
