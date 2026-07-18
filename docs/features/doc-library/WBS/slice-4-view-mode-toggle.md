@@ -97,3 +97,13 @@ minor/moderate and fixed inline before merge, none needed an Intake follow-up is
 6. Factored the `ValidationError` → 422 conversion (duplicated three times across the create/edit/
    view-mode fragment handlers) into a shared `_as_422` helper in
    `app/pages/doc_links_fragments.py`.
+
+**CI note:** the first CI run failed the Alembic migration step — the initial revision id
+`0003_create_user_preferences_table` (34 chars) exceeded the default `alembic_version.version_num`
+column's `varchar(32)`, raising `StringDataRightTruncationError` on the version-bump `UPDATE`.
+Shortened to `0003_create_user_preferences` (28 chars); fixed in a follow-up commit before merge.
+
+**Live-verified** against `https://organizeme.qa.russcoopersoftware.com` post-deploy: unauthenticated
+`PUT /api/v1/doc-links/preferences` and `PUT /doc-library/fragments/view-mode` both return 401
+through the shared LB; `GET /doc-library` redirects (302) as expected for an unauthenticated
+browser navigation.
