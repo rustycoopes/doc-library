@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "OrganizeMe platform — independent Doc Library service (Cloud Run + FastAPI), trusting the Host-issued JWT for SSO"
 requires-python = ">=3.12"
 dependencies = [
-    "organizeme-chrome @ git+https://github.com/rustycoopes/organize-me@chrome-v0.5.5#subdirectory=packages/chrome",
+    "organizeme-chrome @ git+https://github.com/rustycoopes/organize-me@chrome-v0.6.1#subdirectory=packages/chrome",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "jinja2>=3.1",
@@ -14,13 +14,17 @@ dependencies = [
     "alembic>=1.18.5",
     "pydantic-settings>=2.14.2",
     "pyjwt>=2.9",
+    # Registry-decoupling (organize-me#219): app/core/registry.py's background refresh loop
+    # constructs an httpx.AsyncClient directly - a genuine runtime dependency, not just a test
+    # transport, so it belongs here rather than only in the dev group (previously relied on
+    # organizeme-chrome's own transitive httpx dependency, which is fragile).
+    "httpx>=0.27",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
-    "httpx>=0.27",
     "mypy>=1.13",
 ]
 
