@@ -18,3 +18,4 @@
 - 2026-07-17 — #1 Slice 1: Repo & infra setup — [details](features/doc-library/WBS/slice-1-repo-and-infra-setup.md)
 - 2026-07-17 — #2 Slice 2: SSO-trust tracer bullet — [details](features/doc-library/WBS/slice-2-sso-trust-tracer-bullet.md)
 - 2026-07-17 — #3 Slice 3: Doc link CRUD (list view only) — [details](features/doc-library/WBS/slice-3-doc-link-crud.md)
+- 2026-07-17 — #4 Slice 4: List/tiles view toggle, persisted — [details](features/doc-library/WBS/slice-4-view-mode-toggle.md)

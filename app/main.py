@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.v1.doc_links import router as doc_links_api_router
+from app.api.v1.preferences import router as preferences_api_router
 from app.pages.doc_library import router as doc_library_router
 from app.pages.doc_links_fragments import router as doc_links_fragments_router
 
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Doc Library", lifespan=lifespan)
 app.include_router(doc_library_router)
 app.include_router(doc_links_api_router)
+app.include_router(preferences_api_router)
 app.include_router(doc_links_fragments_router)
 
 

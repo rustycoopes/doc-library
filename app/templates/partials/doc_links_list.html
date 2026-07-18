@@ -1,15 +1,60 @@
-{# Grouped-by-category link list, re-rendered wholesale after every create/edit/delete. Also the
-   page's initial content on first load (app/templates/pages/doc_library.html includes this same
-   partial rather than duplicating the markup).
+{% import "partials/_doc_link_macros.html" as macros %}
+{# Grouped-by-category link list, re-rendered wholesale after every create/edit/delete/view-mode
+   toggle. Also the page's initial content on first load (app/templates/pages/doc_library.html
+   includes this same partial rather than duplicating the markup).
+
+   The view-mode toggle lives inside this same swapped div (rather than on the page shell) so its
+   active-state styling stays in sync across every fragment swap, not just the toggle route
+   itself - a create/edit/delete re-render must keep showing the user's persisted view_mode.
 
    Edit uses a native <details>/<summary> disclosure (no extra GET-edit-form route, no
    hand-written JS) rather than a dedicated "edit mode" fragment - the inline form is always
    present in the DOM, just hidden until expanded. #}
-<div id="doc-links-list">
+<div id="doc-links-list" data-view-mode="{{ view_mode }}">
+  <div class="mt-4 flex items-center gap-2" role="group" aria-label="View mode">
+    <button
+      type="button"
+      class="btn btn-xs {{ 'btn-primary' if view_mode == 'list' else 'btn-outline' }}"
+      hx-put="/doc-library/fragments/view-mode"
+      hx-vals='{"view_mode": "list"}'
+      hx-target="#doc-links-list"
+      hx-swap="outerHTML"
+      {% if view_mode == 'list' %}aria-current="true"{% endif %}
+    >
+      List
+    </button>
+    <button
+      type="button"
+      class="btn btn-xs {{ 'btn-primary' if view_mode == 'tiles' else 'btn-outline' }}"
+      hx-put="/doc-library/fragments/view-mode"
+      hx-vals='{"view_mode": "tiles"}'
+      hx-target="#doc-links-list"
+      hx-swap="outerHTML"
+      {% if view_mode == 'tiles' %}aria-current="true"{% endif %}
+    >
+      Tiles
+    </button>
+  </div>
+
   {% if not grouped_links %}
   <div class="mt-6 flex flex-col items-center gap-3 rounded-lg border border-dashed border-base-300 p-8 text-center">
     <p class="font-medium">No links saved yet.</p>
     <p class="text-sm opacity-70">Your saved documentation links will show up here.</p>
+  </div>
+  {% elif view_mode == 'tiles' %}
+  <div class="mt-6 flex flex-col gap-6">
+    {% for category, links in grouped_links %}
+    <section>
+      <h2 class="text-lg font-semibold">{{ category }}</h2>
+      <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {% for link in links %}
+        <div class="rounded-lg border border-base-300 p-3" id="doc-link-{{ link.id }}" data-doc-link>
+          {{ macros.doc_link_body(link) }}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
   </div>
   {% else %}
   <div class="mt-6 flex flex-col gap-6">
@@ -18,73 +63,8 @@
       <h2 class="text-lg font-semibold">{{ category }}</h2>
       <ul class="mt-2 flex flex-col divide-y divide-base-300 rounded-lg border border-base-300">
         {% for link in links %}
-        <li class="p-3" id="doc-link-{{ link.id }}">
-          <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" class="link link-primary font-medium">
-                {{ link.title }}
-              </a>
-              <p class="truncate text-xs opacity-60">{{ link.url }}</p>
-            </div>
-            <div class="flex shrink-0 gap-2">
-              <button
-                type="button"
-                class="btn btn-xs"
-                onclick="this.closest('li').querySelector('details').open = true"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                class="btn btn-xs btn-error"
-                hx-delete="/doc-library/fragments/links/{{ link.id }}"
-                hx-target="#doc-links-list"
-                hx-swap="outerHTML"
-                hx-confirm="Delete this link?"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-          <details class="mt-2">
-            <summary class="cursor-pointer text-xs opacity-60">Edit details</summary>
-            <form
-              class="mt-2 flex flex-col gap-2"
-              hx-patch="/doc-library/fragments/links/{{ link.id }}"
-              hx-target="#doc-links-list"
-              hx-swap="outerHTML"
-            >
-              <input
-                type="text"
-                name="title"
-                value="{{ link.title }}"
-                required
-                minlength="1"
-                maxlength="200"
-                class="input input-bordered input-sm"
-                placeholder="Title"
-              />
-              <input
-                type="url"
-                name="url"
-                value="{{ link.url }}"
-                required
-                class="input input-bordered input-sm"
-                placeholder="https://..."
-              />
-              <input
-                type="text"
-                name="category"
-                value="{{ link.category }}"
-                required
-                minlength="1"
-                maxlength="100"
-                class="input input-bordered input-sm"
-                placeholder="Category"
-              />
-              <button type="submit" class="btn btn-sm btn-primary">Save</button>
-            </form>
-          </details>
+        <li class="p-3" id="doc-link-{{ link.id }}" data-doc-link>
+          {{ macros.doc_link_body(link) }}
         </li>
         {% endfor %}
       </ul>

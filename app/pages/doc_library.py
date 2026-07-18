@@ -17,6 +17,7 @@ from app.core.nav import sidebar_nav_context
 from app.core.templating import templates
 from app.db.session import get_db
 from app.models.doc_link import list_grouped_by_category
+from app.models.user_preference import get_view_mode
 from app.services.host_user import get_host_user
 
 router = APIRouter(tags=["pages"])
@@ -40,9 +41,11 @@ async def doc_library_page(
     # who has never set the preference.
     host_user = await get_host_user(db, user_id)
     grouped_links = await list_grouped_by_category(db, user_id)
+    view_mode = await get_view_mode(db, user_id)
     context = {
         "dark_mode": host_user.dark_mode if host_user is not None else False,
         "grouped_links": grouped_links,
+        "view_mode": view_mode,
         **sidebar_nav_context(host_user, request),
     }
     return templates.TemplateResponse(request, "pages/doc_library.html", context)

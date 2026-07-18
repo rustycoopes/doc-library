@@ -23,15 +23,34 @@ from app.core.auth import current_user_id
 from app.core.templating import templates
 from app.db.session import get_db
 from app.models.doc_link import DocLink, get_owned_doc_link, list_grouped_by_category
+from app.models.user_preference import get_view_mode, set_view_mode
 from app.schemas.doc_link import DocLinkCreate, DocLinkUpdate
+from app.schemas.user_preference import ViewModePreference
 
 router = APIRouter(prefix="/doc-library/fragments", tags=["fragments"])
 
 
+def _as_422(exc: ValidationError) -> HTTPException:
+    # include_context=False: pydantic's raw .errors() embeds the original exception object
+    # (e.g. the ValueError our own field_validator raised) under "ctx" - not JSON-serializable
+    # by FastAPI's default encoder, unlike RequestValidationError's own handling of this.
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail=exc.errors(include_context=False),
+    )
+
+
 async def _render_list(request: Request, db: AsyncSession, user_id: uuid.UUID) -> HTMLResponse:
+    """Re-renders the grouped grid/list in the user's *currently persisted* view mode - every
+    mutation fragment (create/edit/delete) calls this, so a create/edit/delete doesn't silently
+    reset a tile-view user back to list layout.
+    """
     grouped_links = await list_grouped_by_category(db, user_id)
+    view_mode = await get_view_mode(db, user_id)
     return templates.TemplateResponse(
-        request, "partials/doc_links_list.html", {"grouped_links": grouped_links}
+        request,
+        "partials/doc_links_list.html",
+        {"grouped_links": grouped_links, "view_mode": view_mode},
     )
 
 
@@ -47,13 +66,7 @@ async def create_link_fragment(
     try:
         payload = DocLinkCreate(title=title, url=url, category=category)
     except ValidationError as exc:
-        # include_context=False: pydantic's raw .errors() embeds the original exception object
-        # (e.g. the ValueError our own field_validator raised) under "ctx" - not JSON-serializable
-        # by FastAPI's default encoder, unlike RequestValidationError's own handling of this.
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=exc.errors(include_context=False),
-        ) from exc
+        raise _as_422(exc) from exc
     db.add(DocLink(user_id=user_id, title=payload.title, url=payload.url, category=payload.category))
     await db.commit()
     return await _render_list(request, db, user_id)
@@ -75,13 +88,7 @@ async def update_link_fragment(
     try:
         payload = DocLinkUpdate(title=title, url=url, category=category)
     except ValidationError as exc:
-        # include_context=False: pydantic's raw .errors() embeds the original exception object
-        # (e.g. the ValueError our own field_validator raised) under "ctx" - not JSON-serializable
-        # by FastAPI's default encoder, unlike RequestValidationError's own handling of this.
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=exc.errors(include_context=False),
-        ) from exc
+        raise _as_422(exc) from exc
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(doc_link, field, value)
     await db.commit()
@@ -99,5 +106,23 @@ async def delete_link_fragment(
     if doc_link is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     await db.delete(doc_link)
+    await db.commit()
+    return await _render_list(request, db, user_id)
+
+
+@router.put("/view-mode", response_model=None)
+async def update_view_mode_fragment(
+    request: Request,
+    view_mode: Annotated[str, Form()],
+    user_id: uuid.UUID = Depends(current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> HTMLResponse:
+    try:
+        # model_validate (not the DocLinkCreate-style kwarg form) because the Form() value is
+        # typed str, not Literal["list", "tiles"] - mypy would otherwise flag the kwarg call.
+        payload = ViewModePreference.model_validate({"view_mode": view_mode})
+    except ValidationError as exc:
+        raise _as_422(exc) from exc
+    await set_view_mode(db, user_id, payload.view_mode)
     await db.commit()
     return await _render_list(request, db, user_id)

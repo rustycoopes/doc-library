@@ -1,11 +1,12 @@
-"""HTMX fragment routes backing the /doc-library page's inline add/edit/delete controls."""
+"""HTMX fragment routes backing the /doc-library page's inline add/edit/delete/view-mode
+controls."""
 
 import uuid
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import TokenFactory, create_doc_link, create_host_user
+from tests.conftest import TokenFactory, create_doc_link, create_host_user, create_user_preference
 
 
 async def test_create_fragment_requires_authentication(client: AsyncClient) -> None:
@@ -204,3 +205,127 @@ async def test_delete_fragment_shows_empty_state_when_last_link_removed(
 
     assert response.status_code == 200
     assert "No links saved yet" in response.text
+
+
+async def test_view_mode_fragment_requires_authentication(client: AsyncClient) -> None:
+    response = await client.put(
+        "/doc-library/fragments/view-mode", data={"view_mode": "tiles"}
+    )
+
+    assert response.status_code == 401
+
+
+async def test_view_mode_fragment_rejects_invalid_mode(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+
+    response = await client.put(
+        "/doc-library/fragments/view-mode",
+        data={"view_mode": "grid"},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_view_mode_fragment_switches_to_tiles_and_persists(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    await create_doc_link(db_session, user_id=user_id, title="MDN", category="Reference")
+
+    response = await client.put(
+        "/doc-library/fragments/view-mode",
+        data={"view_mode": "tiles"},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 200
+    assert 'data-view-mode="tiles"' in response.text
+    assert "MDN" in response.text
+
+    from app.models.user_preference import get_view_mode
+
+    assert await get_view_mode(db_session, user_id) == "tiles"
+
+
+async def test_view_mode_fragment_returns_structurally_different_markup_per_mode(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    cookies = {"organizeme_auth": token}
+    await create_doc_link(db_session, user_id=user_id, title="MDN", category="Reference")
+
+    tiles_response = await client.put(
+        "/doc-library/fragments/view-mode", data={"view_mode": "tiles"}, cookies=cookies
+    )
+    list_response = await client.put(
+        "/doc-library/fragments/view-mode", data={"view_mode": "list"}, cookies=cookies
+    )
+
+    assert 'data-view-mode="tiles"' in tiles_response.text
+    assert "<ul" not in tiles_response.text
+    assert 'data-view-mode="list"' in list_response.text
+    assert "<ul" in list_response.text
+
+
+async def test_view_mode_fragment_does_not_affect_another_users_preference(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    from app.models.user_preference import get_view_mode
+
+    owner_id = await create_host_user(db_session)
+    other_id = await create_host_user(db_session)
+    other_token = make_token.valid(sub=str(other_id))
+
+    response = await client.put(
+        "/doc-library/fragments/view-mode",
+        data={"view_mode": "tiles"},
+        cookies={"organizeme_auth": other_token},
+    )
+
+    assert response.status_code == 200
+    assert await get_view_mode(db_session, owner_id) == "list"
+
+
+async def test_view_mode_fragment_switches_back_to_list(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    await create_user_preference(db_session, user_id=user_id, view_mode="tiles")
+    token = make_token.valid(sub=str(user_id))
+
+    response = await client.put(
+        "/doc-library/fragments/view-mode",
+        data={"view_mode": "list"},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 200
+
+    from app.models.user_preference import get_view_mode
+
+    assert await get_view_mode(db_session, user_id) == "list"
+
+
+async def test_create_fragment_preserves_the_persisted_tile_view_mode(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    # A create/edit/delete re-render must not silently reset a tile-view user back to list.
+    user_id = await create_host_user(db_session)
+    await create_user_preference(db_session, user_id=user_id, view_mode="tiles")
+    token = make_token.valid(sub=str(user_id))
+
+    response = await client.post(
+        "/doc-library/fragments/links",
+        data={"title": "MDN", "url": "https://developer.mozilla.org", "category": "Reference"},
+        cookies={"organizeme_auth": token},
+    )
+
+    assert response.status_code == 200
+    assert 'aria-current="true"' in response.text
+    assert "MDN" in response.text
