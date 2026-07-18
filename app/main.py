@@ -5,6 +5,11 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+# Imported first, deliberately - configures organizeme_chrome's registry source (see
+# app/core/registry.py's module docstring) before any router module below can call
+# organizeme_chrome.get_app()/list_apps() at its own module-import time (app/core/templating.py
+# does exactly this, transitively, via every app/pages/* router imported below).
+from app.core import registry as _registry  # noqa: F401
 from app.api.v1.doc_links import router as doc_links_api_router
 from app.api.v1.preferences import router as preferences_api_router
 from app.core.config import get_settings
