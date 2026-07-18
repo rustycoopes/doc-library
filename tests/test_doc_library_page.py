@@ -7,7 +7,7 @@ seam end to end before any real feature logic is built.
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import TokenFactory, create_doc_link, create_host_user
+from tests.conftest import TokenFactory, create_doc_link, create_host_user, create_user_preference
 
 
 async def test_valid_host_jwt_renders_the_empty_state_page(
@@ -187,3 +187,53 @@ async def test_page_still_shows_empty_state_with_zero_links(
 
     assert response.status_code == 200
     assert "No links saved yet" in response.text
+
+
+async def test_page_defaults_to_list_view_when_no_preference_row_exists(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    token = make_token.valid(sub=str(user_id))
+    await create_doc_link(db_session, user_id=user_id, title="MDN", category="Reference")
+
+    response = await client.get("/doc-library", cookies={"organizeme_auth": token})
+
+    assert response.status_code == 200
+    assert 'data-view-mode="list"' in response.text
+
+
+async def test_page_renders_tiles_when_the_user_has_persisted_that_preference(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    user_id = await create_host_user(db_session)
+    await create_user_preference(db_session, user_id=user_id, view_mode="tiles")
+    token = make_token.valid(sub=str(user_id))
+    await create_doc_link(db_session, user_id=user_id, title="MDN", category="Reference")
+
+    response = await client.get("/doc-library", cookies={"organizeme_auth": token})
+
+    assert response.status_code == 200
+    assert 'data-view-mode="tiles"' in response.text
+
+
+async def test_tile_view_groups_categories_and_titles_alphabetically(
+    client: AsyncClient, db_session: AsyncSession, make_token: type[TokenFactory]
+) -> None:
+    # Mirrors test_page_renders_links_grouped_by_category's list-mode assertion - the WBS
+    # requires tile view to use the same grouping/ordering rules as list view, not just the same
+    # layout mechanism.
+    user_id = await create_host_user(db_session)
+    await create_user_preference(db_session, user_id=user_id, view_mode="tiles")
+    token = make_token.valid(sub=str(user_id))
+    await create_doc_link(db_session, user_id=user_id, title="Zebra Guide", category="Beta")
+    await create_doc_link(db_session, user_id=user_id, title="Banana Guide", category="Alpha")
+    await create_doc_link(db_session, user_id=user_id, title="Apple Guide", category="Alpha")
+
+    response = await client.get("/doc-library", cookies={"organizeme_auth": token})
+
+    assert response.status_code == 200
+    assert 'data-view-mode="tiles"' in response.text
+    # Category ordering: Alpha before Beta.
+    assert response.text.index("Alpha") < response.text.index("Beta")
+    # Title ordering within a category: Apple before Banana.
+    assert response.text.index("Apple Guide") < response.text.index("Banana Guide")

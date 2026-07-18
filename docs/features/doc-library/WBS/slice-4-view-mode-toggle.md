@@ -36,14 +36,14 @@ interface contract.
 
 ## Acceptance criteria
 
-- [ ] A first-time visitor (no preference row yet) sees list view by default.
-- [ ] Clicking the toggle switches the visible layout between list and tiles without a full page
+- [x] A first-time visitor (no preference row yet) sees list view by default.
+- [x] Clicking the toggle switches the visible layout between list and tiles without a full page
       reload.
-- [ ] The chosen view mode persists across a full logout/login cycle and across a fresh browser
+- [x] The chosen view mode persists across a full logout/login cycle and across a fresh browser
       session (server-side, not localStorage/cookie-only).
-- [ ] Tile view groups by category the same way list view does — same alphabetical ordering rules.
-- [ ] Unauthenticated requests to the view-mode endpoints return 401.
-- [ ] A user's view-mode preference is never visible to or settable by another user.
+- [x] Tile view groups by category the same way list view does — same alphabetical ordering rules.
+- [x] Unauthenticated requests to the view-mode endpoints return 401.
+- [x] A user's view-mode preference is never visible to or settable by another user.
 
 ## Testing
 
@@ -58,3 +58,52 @@ HTTP-level, mirroring `event-creator`'s Settings-fragment tests
   including the never-set-yet default case.
 
 <!-- /to-implementation appends a "## Delivered" section here once this slice ships. -->
+
+## Delivered
+
+**Issue:** #4 · **Branch:** `feature/slice-4-view-mode-toggle` · **Date:** 2026-07-17
+
+Shipped `doc_library.user_preferences` (migration `0003`, PK `user_id` FK `host.users.id`
+`ON DELETE CASCADE`, `view_mode` `Text` with a `CHECK (view_mode IN ('list', 'tiles'))` for
+defense-in-depth alongside the Pydantic `Literal["list", "tiles"]` validation on every route),
+`get_view_mode`/`set_view_mode` query functions (`app/models/user_preference.py` — the latter an
+atomic `INSERT ... ON CONFLICT DO UPDATE` so two concurrent first-writes for the same user can't
+race into a duplicate-PK error), a pure JSON `PUT /api/v1/doc-links/preferences` endpoint, and an
+HTMX `PUT /doc-library/fragments/view-mode` fragment route. `/doc-library` now reads the user's
+persisted `view_mode` (defaulting to `list`) on load, and every mutation fragment
+(create/edit/delete/toggle) re-renders in the currently persisted mode via a shared `_render_list`
+helper, so a create/edit/delete never silently resets a tile-view user back to list. Tile-view
+markup shares its per-link body (view link, edit disclosure, delete button) with list-view via a
+new Jinja macro (`app/templates/partials/_doc_link_macros.html`) rather than duplicating it.
+
+**Diverged from plan:** none — implemented per the TDD/WBS as written.
+
+**Code review (code-review-master + code-quality-guardian):** no blockers; all suggestions were
+minor/moderate and fixed inline before merge, none needed an Intake follow-up issue:
+1. `set_view_mode` originally committed its own transaction, unlike every other mutation in this
+   codebase (`app/models/doc_link.py`'s functions are commit-free; the route handler owns the
+   transaction boundary). Fixed by moving `db.commit()` into the two callers
+   (`app/api/v1/preferences.py`, `update_view_mode_fragment`).
+2. Added the `CHECK` constraint noted above — the TDD describes `view_mode` as "text/enum," and
+   the only prior guard was the Pydantic schema, which a direct-SQL write would bypass.
+3. Tile-view category/title ordering wasn't actually exercised by any test with more than one
+   category — added `test_tile_view_groups_categories_and_titles_alphabetically`.
+4. The list-vs-tiles distinction in tests relied on brittle exact-Tailwind-class string matches.
+   Added a `data-view-mode="{list|tiles}"` attribute on the swapped `#doc-links-list` div as a
+   stable structural marker and switched the relevant assertions to use it, including a new
+   `test_view_mode_fragment_returns_structurally_different_markup_per_mode`.
+5. Added `test_view_mode_fragment_does_not_affect_another_users_preference` — the HTMX fragment
+   route had no cross-user-isolation test of its own (only the JSON API did).
+6. Factored the `ValidationError` → 422 conversion (duplicated three times across the create/edit/
+   view-mode fragment handlers) into a shared `_as_422` helper in
+   `app/pages/doc_links_fragments.py`.
+
+**CI note:** the first CI run failed the Alembic migration step — the initial revision id
+`0003_create_user_preferences_table` (34 chars) exceeded the default `alembic_version.version_num`
+column's `varchar(32)`, raising `StringDataRightTruncationError` on the version-bump `UPDATE`.
+Shortened to `0003_create_user_preferences` (28 chars); fixed in a follow-up commit before merge.
+
+**Live-verified** against `https://organizeme.qa.russcoopersoftware.com` post-deploy: unauthenticated
+`PUT /api/v1/doc-links/preferences` and `PUT /doc-library/fragments/view-mode` both return 401
+through the shared LB; `GET /doc-library` redirects (302) as expected for an unauthenticated
+browser navigation.

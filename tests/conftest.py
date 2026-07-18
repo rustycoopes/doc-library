@@ -165,6 +165,18 @@ async def create_doc_link(
     return doc_link.id
 
 
+async def create_user_preference(
+    session: AsyncSession, *, user_id: uuid.UUID, view_mode: str = "tiles"
+) -> None:
+    """Insert a `doc_library.user_preferences` row directly, bypassing the API/set_view_mode -
+    for seeding tests that need a pre-existing preference row (e.g. a non-default view_mode
+    already persisted before the request under test)."""
+    from app.models.user_preference import UserPreference
+
+    session.add(UserPreference(user_id=user_id, view_mode=view_mode))
+    await session.flush()
+
+
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
     """httpx client for endpoint tests, wired to the same rolled-back db_session.
