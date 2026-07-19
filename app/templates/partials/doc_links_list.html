@@ -8,9 +8,9 @@
    active-state styling stays in sync across every fragment swap, not just the toggle route
    itself - a create/edit/delete re-render must keep showing the user's persisted view_mode.
 
-   Edit uses a native <details>/<summary> disclosure (no extra GET-edit-form route, no
-   hand-written JS) rather than a dedicated "edit mode" fragment - the inline form is always
-   present in the DOM, just hidden until expanded. #}
+   Edit uses a plain hidden <div> toggled by the Edit button (no extra GET-edit-form route, no
+   dedicated "edit mode" fragment) - the inline form is always present in the DOM, just hidden
+   until the Edit button reveals it. #}
 <div id="doc-links-list" data-view-mode="{{ view_mode }}">
   <div class="mt-4 flex items-center gap-2" role="group" aria-label="View mode">
     {% for mode, mode_label in [("list", "List"), ("tiles", "Tiles")] %}
@@ -36,7 +36,7 @@
       <h2 class="font-display text-lg font-semibold text-ink dark:text-paper">{{ category }}</h2>
       <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {% for link in links %}
-        <div class="rounded-lg border border-ink-2/10 p-3 dark:border-paper/10" id="doc-link-{{ link.id }}" data-doc-link>
+        <div class="rounded-lg border border-ink-2/10 bg-paper p-3 dark:border-paper/10 dark:bg-ink-2" id="doc-link-{{ link.id }}" data-doc-link>
           {{ macros.doc_link_body(link) }}
         </div>
         {% endfor %}
@@ -49,7 +49,7 @@
     {% for category, links in grouped_links %}
     <section>
       <h2 class="font-display text-lg font-semibold text-ink dark:text-paper">{{ category }}</h2>
-      <ul class="mt-2 flex flex-col divide-y divide-ink-2/10 rounded-lg border border-ink-2/10 dark:divide-paper/10 dark:border-paper/10">
+      <ul class="mt-2 flex flex-col divide-y divide-ink-2/10 rounded-lg border border-ink-2/10 bg-paper dark:divide-paper/10 dark:border-paper/10 dark:bg-ink-2">
         {% for link in links %}
         <li class="p-3" id="doc-link-{{ link.id }}" data-doc-link>
           {{ macros.doc_link_body(link) }}
