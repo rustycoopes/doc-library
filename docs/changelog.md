@@ -23,5 +23,7 @@
 
 - 2026-07-19 — #19 Slice 6: Adopt the shared OrganizeMe design system — [details](features/doc-library/WBS/slice-6-design-system-adoption.md)
 
+- 2026-07-19 — #9 Intake: HostUser write-guard — [details](features/doc-library/WBS/slice-2-sso-trust-tracer-bullet.md)
+
 ### Fixed
 - 2026-07-19 — #17 Sidebar renders broken (moved to bottom, buttons invisible) — organizeme-chrome pin bumped from chrome-v0.9.0 to chrome-v0.12.1 — [PR #20](https://github.com/rustycoopes/doc-library/pull/20)

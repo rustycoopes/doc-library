@@ -17,14 +17,18 @@ network call - but is **select-only by convention and by construction**:
   `nav_collapsed_groups`) - deliberately omitting `email`, `hashed_password`, `is_active`, etc.,
   which live on the Host's real `User` model and are none of Doc Library's concern.
 - Nothing in this codebase ever `db.add()`s, updates, or deletes a `HostUser` - callers must only
-  ever `select()` it. There is no ORM-level mechanism preventing a write, so this is enforced by
-  code review / convention, same as event-creator's identical pattern.
+  ever `select()` it. A `before_flush` event listener below backs this up with a runtime guard
+  (issue #9) - convention/review alone don't stop a future slice from accidentally attaching a
+  `HostUser` write to a session that also has legitimate writes on it, which would otherwise only
+  surface as a confusing FK/permissions error (or worse, silently succeed) at flush time.
 """
 
 import uuid
 
-from sqlalchemy import JSON, Boolean, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from typing import Any
+
+from sqlalchemy import JSON, Boolean, Uuid, event
+from sqlalchemy.orm import Mapped, Session, UOWTransaction, mapped_column
 
 from app.db.base import Base
 
@@ -38,3 +42,22 @@ class HostUser(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     dark_mode: Mapped[bool] = mapped_column(Boolean, default=False)
     nav_collapsed_groups: Mapped[dict[str, bool]] = mapped_column(JSON, default=dict)
+
+
+@event.listens_for(Session, "before_flush")
+def _reject_host_user_writes(
+    session: Session, flush_context: UOWTransaction, instances: Any | None
+) -> None:
+    """Refuse to flush any insert/update/delete of a `HostUser` - see the module docstring.
+
+    Registered on the sync `Session` class (not `AsyncSession`, which has none of its own ORM
+    events) - `AsyncSession.flush()` delegates to an underlying sync `Session` internally, so this
+    still fires for this app's actual async sessions; this is SQLAlchemy's documented way to hook
+    ORM-level events for async sessions.
+    """
+    offenders = [obj for obj in (*session.new, *session.dirty, *session.deleted) if isinstance(obj, HostUser)]
+    if offenders:
+        raise RuntimeError(
+            "HostUser is select-only - refusing to flush an insert/update/delete "
+            f"({len(offenders)} pending). See app.models.host_user's module docstring."
+        )
