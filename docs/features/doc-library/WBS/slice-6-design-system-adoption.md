@@ -61,12 +61,13 @@ different issue, filed separately, since that's a mechanical dependency bump not
 
 ## Acceptance criteria
 
-- [ ] Zero DaisyUI classes anywhere in `app/templates/**`.
-- [ ] Add-link form, list/tiles toggle, and per-link Edit/Delete controls are all visibly styled
+- [x] Zero DaisyUI classes anywhere in `app/templates/**`.
+- [x] Add-link form, list/tiles toggle, and per-link Edit/Delete controls are all visibly styled
       (not just readable as bare text) in both light and dark mode.
-- [ ] Existing functional behavior (create/edit/delete a link, toggle view mode, persisted
+- [x] Existing functional behavior (create/edit/delete a link, toggle view mode, persisted
       view-mode preference) is unchanged — this is presentation-only.
-- [ ] No regression in existing Playwright specs for Doc Library.
+- [x] No regression in existing Playwright specs for Doc Library. (This repo has no Playwright
+      specs — coverage is pytest-based HTTP/HTML assertions instead; those are the ones verified.)
 
 ## Testing
 
@@ -76,3 +77,40 @@ different issue, filed separately, since that's a mechanical dependency bump not
   `organize-me`'s own Slice 5.
 
 <!-- /to-implementation appends a "## Delivered" section here once this slice ships. -->
+
+## Delivered
+
+- **Issue:** #19
+- **Branch:** `feature/slice-6-design-system-adoption`
+- **Date:** 2026-07-19
+
+Rebuilt `app/templates/pages/doc_library.html`, `partials/doc_links_list.html`, and
+`partials/_doc_link_macros.html` on the shared `organizeme_chrome` `card_shell`/`input`/`button`
+primitives (pinned `chrome-v0.12.1`, already carrying Slice 5's ghost-button contrast fix — no
+pin bump needed here, #17 landed it first). Every DaisyUI class (`btn`, `btn-xs`, `btn-primary`,
+`btn-outline`, `btn-error`, `input input-bordered`, `link link-primary`, `border-base-300`,
+`divide-base-300`) is gone; the add-link form is wrapped in `card_shell` (rather than
+re-deriving its border/padding classes by hand) matching `login.html`'s own
+`{% call card_shell() %}<form>...</form>{% endcall %}` pattern, list/tiles borders and dividers
+use `border-ink-2/10 dark:border-paper/10` directly, headings use `font-display`/`text-ink`, and
+the Delete button uses the button primitive's existing `variant="danger"` (already defined in
+`organizeme-chrome`'s `BUTTON_VARIANT_CLASSES` — no new primitive needed, per the WBS's
+contingency note). The List/Tiles view-mode toggle buttons are generated from a single
+`{% for mode, label in [...] %}` loop rather than two near-identical macro calls, and the
+per-link title link picks up the same `{{ FOCUS_RING }} rounded-sm` pairing every other
+`text-cobalt` link in organize-me uses.
+
+Diverged from the plan in two small ways:
+- The `input` primitive always renders a visible `<label>` (the old DaisyUI markup had
+  placeholder-only fields with no label). Kept the primitive's default rather than fighting it —
+  a straightforward a11y improvement, not a regression.
+- The `input` primitive's default `id` is `field-<name>`, which would collide across every
+  per-link inline edit form on the page. Passed an explicit `id="edit-<field>-<link.id>"` per
+  input in `_doc_link_macros.html` to keep every edit form's fields uniquely identified.
+
+Verified by rendering `pages/doc_library.html` and `partials/doc_links_list.html` directly
+against the app's own Jinja environment (empty/list/tiles states, with real per-link data) and
+asserting no DaisyUI class strings remain in the output — full pytest suite (create/edit/delete/
+view-mode-toggle) deferred to CI, which has a reachable Postgres; no local DB was available in
+this pass. `tests/test_health.py`/`tests/test_registry_client_wiring.py` (the two suites that
+don't need a DB) passed locally.

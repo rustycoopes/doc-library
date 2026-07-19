@@ -1,71 +1,46 @@
+{% from "components/input.html" import input %}
+{% from "components/button.html" import button %}
 {# Shared per-link markup (view + inline edit/delete controls), used by both the list and tile
    layouts in doc_links_list.html so the two layouts don't duplicate the edit form / delete
    button. #}
 {% macro doc_link_body(link) %}
 <div class="flex items-center justify-between gap-3">
   <div class="min-w-0">
-    <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" class="link link-primary font-medium">
+    <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" class="font-body font-medium text-cobalt hover:underline dark:text-cobalt {{ FOCUS_RING }} rounded-sm">
       {{ link.title }}
     </a>
-    <p class="truncate text-xs opacity-60">{{ link.url }}</p>
+    <p class="truncate font-body text-xs text-ink-2 dark:text-paper-2">{{ link.url }}</p>
   </div>
   <div class="flex shrink-0 gap-2">
-    <button
-      type="button"
-      class="btn btn-xs"
-      onclick="this.closest('[data-doc-link]').querySelector('details').open = true"
-    >
-      Edit
-    </button>
-    <button
-      type="button"
-      class="btn btn-xs btn-error"
-      hx-delete="/doc-library/fragments/links/{{ link.id }}"
-      hx-target="#doc-links-list"
-      hx-swap="outerHTML"
-      hx-confirm="Delete this link?"
-    >
-      Delete
-    </button>
+    {{ button(
+      "Edit",
+      type="button",
+      variant="ghost",
+      attrs='onclick="this.closest(\'[data-doc-link]\').querySelector(\'details\').open = true"'
+    ) }}
+    {{ button(
+      "Delete",
+      type="button",
+      variant="danger",
+      attrs=(
+        'hx-delete="/doc-library/fragments/links/' + (link.id | string) + '" '
+        + 'hx-target="#doc-links-list" hx-swap="outerHTML" hx-confirm="Delete this link?"'
+      )
+    ) }}
   </div>
 </div>
 <details class="mt-2">
-  <summary class="cursor-pointer text-xs opacity-60">Edit details</summary>
+  <summary class="cursor-pointer font-body text-xs text-ink-2 dark:text-paper-2">Edit details</summary>
   <form
     class="mt-2 flex flex-col gap-2"
     hx-patch="/doc-library/fragments/links/{{ link.id }}"
     hx-target="#doc-links-list"
     hx-swap="outerHTML"
   >
-    <input
-      type="text"
-      name="title"
-      value="{{ link.title }}"
-      required
-      minlength="1"
-      maxlength="200"
-      class="input input-bordered input-sm"
-      placeholder="Title"
-    />
-    <input
-      type="url"
-      name="url"
-      value="{{ link.url }}"
-      required
-      class="input input-bordered input-sm"
-      placeholder="https://..."
-    />
-    <input
-      type="text"
-      name="category"
-      value="{{ link.category }}"
-      required
-      minlength="1"
-      maxlength="100"
-      class="input input-bordered input-sm"
-      placeholder="Category"
-    />
-    <button type="submit" class="btn btn-sm btn-primary">Save</button>
+    {{ input("title", label="Title", id="edit-title-" + link.id | string, value=link.title, required=True, minlength=1, attrs='maxlength="200"', placeholder="Title") }}
+    {{ input("url", label="URL", id="edit-url-" + link.id | string, type="url", value=link.url, required=True, placeholder="https://...") }}
+    {{ input("category", label="Category", id="edit-category-" + link.id | string, value=link.category, required=True, minlength=1, attrs='maxlength="100"', placeholder="Category") }}
+    {{ button("Save", type="submit", variant="primary") }}
   </form>
 </details>
 {% endmacro %}
