@@ -24,11 +24,13 @@ own comment.
 import asyncio
 import contextlib
 import logging
+import time
 
 import httpx
 from organizeme_chrome.registry import AppEntry, AppNavItem
 from organizeme_chrome.registry_client import (
     FetchedRegistrySource,
+    TokenProvider,
     build_default_token_provider,
     fetch_registry_once,
 )
@@ -45,14 +47,52 @@ SELF_APP_ENTRY = AppEntry(
 )
 
 
+def _instrumented_token_provider(
+    base_token_provider: TokenProvider, timeout_seconds: float
+) -> TokenProvider:
+    """Wraps `build_default_token_provider`'s callable with its own bounded timeout and
+    before/after logging, so `_refresh_loop`'s single `await fetch_registry_once(...)` line can be
+    diagnosed step-by-step (doc-library#22) instead of failing silently - see the
+    `registry_token_fetch_timeout_seconds` setting for why this timeout exists.
+    """
+
+    async def _provider() -> str:
+        started = time.monotonic()
+        logger.debug("registry refresh: fetching OIDC token")
+        try:
+            # asyncio.wait_for's cancellation can't actually stop base_token_provider() once its
+            # blocking google-auth call is running in its asyncio.to_thread worker thread - on
+            # timeout, that thread keeps running in the background (for up to google-auth's own
+            # 120s default) and its eventual result is discarded, silently, with no log line. This
+            # doesn't leak (the thread exits on its own), but it does mean a timeout here doesn't
+            # prove the metadata server never responds, only that it didn't within this window.
+            token = await asyncio.wait_for(base_token_provider(), timeout=timeout_seconds)
+        except TimeoutError:
+            logger.warning(
+                "registry refresh: OIDC token fetch timed out after %.1fs", timeout_seconds
+            )
+            raise
+        else:
+            logger.debug(
+                "registry refresh: OIDC token fetched in %.2fs", time.monotonic() - started
+            )
+            return token
+
+    return _provider
+
+
 async def _refresh_loop(
     source: FetchedRegistrySource,
     client: httpx.AsyncClient,
     settings: Settings,
 ) -> None:
-    token_provider = build_default_token_provider(settings.registry_host_url)
+    token_provider = _instrumented_token_provider(
+        build_default_token_provider(settings.registry_host_url),
+        settings.registry_token_fetch_timeout_seconds,
+    )
     fresh_since: str | None = None
     while True:
+        logger.info("registry refresh: attempt starting")
         try:
             apps = await fetch_registry_once(client, settings.registry_host_url, token_provider)
         except Exception:

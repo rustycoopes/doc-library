@@ -1,9 +1,19 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+
+# doc-library#22: nothing in this app ever configured the root logger, so every logger.info()/
+# .debug() call anywhere in app/ (including the registry refresh loop's own instrumentation) was
+# silently dropped by Python's default root level (WARNING) - only .warning()+ calls ever reached
+# Cloud Run's logs (via logging.lastResort's stderr handler). Confirmed live: "registry refresh:
+# freshly-refreshed" never once appeared in QA logs despite the registry having demonstrably
+# refreshed successfully. This makes INFO+ visible app-wide, matching uvicorn's own already-visible
+# INFO access logs, called before any other import has a chance to emit anything.
+logging.basicConfig(level=logging.INFO)
 
 # Imported first, deliberately - configures organizeme_chrome's registry source (see
 # app/core/registry.py's module docstring) before any router module below can call

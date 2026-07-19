@@ -6,6 +6,7 @@ loop directly" guidance. Mirrors event-creator's identical Slice 1 test.
 """
 
 import asyncio
+import logging
 
 import pytest
 
@@ -13,6 +14,7 @@ import app.core.registry as registry_module
 from app.core.config import Settings
 from app.core.registry import (
     SELF_APP_ENTRY,
+    _instrumented_token_provider,
     configure_client_registry_source,
     start_registry_refresh_task,
     stop_registry_refresh_task,
@@ -87,6 +89,43 @@ async def test_refresh_task_keeps_last_known_good_on_a_failed_fetch(
         assert source.get_apps() == [other_app, SELF_APP_ENTRY]
     finally:
         await stop_registry_refresh_task(task, client)
+
+
+async def test_instrumented_token_provider_logs_and_returns_on_a_fast_fetch(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def fast_token_provider() -> str:
+        return "test-token"
+
+    wrapped = _instrumented_token_provider(fast_token_provider, timeout_seconds=1)
+
+    # DEBUG: the routine success-path lines are opt-in verbosity, unlike the timeout warning below
+    # which must stay visible at the default level - see the log-level comment in registry.py.
+    with caplog.at_level(logging.DEBUG, logger="app.core.registry"):
+        token = await wrapped()
+
+    assert token == "test-token"
+    assert any("fetching OIDC token" in r.message for r in caplog.records)
+    assert any("OIDC token fetched in" in r.message for r in caplog.records)
+
+
+async def test_instrumented_token_provider_times_out_and_logs_distinctly(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def hanging_token_provider() -> str:
+        await asyncio.sleep(10)
+        return "unreachable"
+
+    wrapped = _instrumented_token_provider(hanging_token_provider, timeout_seconds=0.01)
+
+    with caplog.at_level(logging.INFO, logger="app.core.registry"):
+        with pytest.raises(TimeoutError):
+            await wrapped()
+
+    assert any("OIDC token fetch timed out after" in r.message for r in caplog.records)
+    # Doesn't also claim success - the timeout log is distinguishable from the fetched-in-Xs log
+    # a redeploy needs to isolate which step (token fetch vs. the Host GET) is slow (doc-library#22).
+    assert not any("OIDC token fetched in" in r.message for r in caplog.records)
 
 
 async def test_stop_registry_refresh_task_cancels_the_loop_cleanly(
