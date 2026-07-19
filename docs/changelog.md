@@ -20,3 +20,6 @@
 - 2026-07-17 — #3 Slice 3: Doc link CRUD (list view only) — [details](features/doc-library/WBS/slice-3-doc-link-crud.md)
 - 2026-07-17 — #4 Slice 4: List/tiles view toggle, persisted — [details](features/doc-library/WBS/slice-4-view-mode-toggle.md)
 - 2026-07-18 — #5 Slice 5: Prod cutover — [details](features/doc-library/WBS/slice-5-prod-cutover.md)
+
+### Fixed
+- 2026-07-19 — #17 Sidebar renders broken (moved to bottom, buttons invisible) — organizeme-chrome pin bumped from chrome-v0.9.0 to chrome-v0.12.1 — [PR #20](https://github.com/rustycoopes/doc-library/pull/20)
