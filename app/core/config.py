@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     registry_host_url: str = ""
     registry_refresh_interval_seconds: float = 60
     registry_fetch_timeout_seconds: float = 5
+    # doc-library#22: the OIDC token-fetch step (metadata-server round trip) has no timeout of its
+    # own - it inherits google-auth's 120s default, which under Cloud Run's request-based CPU
+    # throttling (background asyncio work gets no CPU between inbound requests - see organize-me's
+    # ADR-0001) meant a stuck/slow instance produced zero log output for minutes. This bounds that
+    # step explicitly so app/core/registry.py's _refresh_loop always logs which step was slow
+    # rather than silently waiting on google-auth's default.
+    registry_token_fetch_timeout_seconds: float = 10
 
     # Add app-specific settings below as they're needed (third-party API keys, feature flags,
     # etc.) — follow the empty-default-with-a-clear-runtime-error pattern used across the other
