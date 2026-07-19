@@ -101,6 +101,15 @@ Code review (code-review-master + code-quality-guardian): no blockers. One fix a
 (no runtime write-guard against accidental writes through the read-only `HostUser` mapping; 302 vs
 303 redirect status) filed to Intake as issue #9.
 
+**Issue #9 follow-up (branch `fix/hostuser-write-guard`):** added the `HostUser` write-guard —
+a `before_flush` SQLAlchemy event listener in `app/models/host_user.py` that raises `RuntimeError`
+if any `HostUser` instance is pending insert/update/delete at flush time. Registered on the sync
+`Session` class (fires for this app's `AsyncSession` too, since `AsyncSession.flush()` delegates
+to an underlying sync `Session`). The 302-vs-303 redirect suggestion was deliberately left as-is:
+it's an already-tested, cross-repo convention (`event-creator`'s equivalent route also uses 302,
+and this slice's own acceptance criteria above specify 302) — changing it unilaterally in just
+this repo would be a bigger, separate decision than a "Intake, non-blocking suggestion" implies.
+
 ## Testing
 
 HTTP-level: `tests/test_doc_library_page.py` (mirrors `event-creator`'s
