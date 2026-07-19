@@ -19,6 +19,14 @@ dependencies = [
     # transport, so it belongs here rather than only in the dev group (previously relied on
     # organizeme-chrome's own transitive httpx dependency, which is fragile).
     "httpx>=0.27",
+    # doc-library#18: build_default_token_provider() calls google.auth.transport.requests to mint
+    # the OIDC identity token for the registry fetch; that transport module hard-imports `requests`
+    # and raises ImportError if it's missing, which organizeme-chrome's own google-auth dependency
+    # does not pull in transitively. Without this, every registry refresh silently fails forever and
+    # the sidebar is stuck on the self-only cold-start default. event-creator already declares this
+    # pin too, for a related reason (its own cachecontrol/OIDC-cert-fetch wrapping) - see its
+    # pyproject.toml.
+    "requests>=2.32",
 ]
 
 [dependency-groups]
