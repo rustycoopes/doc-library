@@ -24,7 +24,8 @@ dependencies = [
     # and raises ImportError if it's missing, which organizeme-chrome's own google-auth dependency
     # does not pull in transitively. Without this, every registry refresh silently fails forever and
     # the sidebar is stuck on the self-only cold-start default. event-creator already declares this
-    # for the same reason - see its pyproject.toml.
+    # pin too, for a related reason (its own cachecontrol/OIDC-cert-fetch wrapping) - see its
+    # pyproject.toml.
     "requests>=2.32",
 ]
 
