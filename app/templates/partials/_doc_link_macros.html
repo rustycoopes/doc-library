@@ -16,7 +16,11 @@
       "Edit",
       type="button",
       variant="ghost",
-      attrs='onclick="this.closest(\'[data-doc-link]\').querySelector(\'details\').open = true"'
+      attrs=(
+        'onclick="const p=this.closest(\'[data-doc-link]\').querySelector(\'[data-edit-panel]\');'
+        + 'p.classList.toggle(\'hidden\');this.setAttribute(\'aria-expanded\',!p.classList.contains(\'hidden\'))" '
+        + 'aria-expanded="false" aria-controls="edit-panel-' + (link.id | string) + '"'
+      )
     ) }}
     {{ button(
       "Delete",
@@ -29,8 +33,7 @@
     ) }}
   </div>
 </div>
-<details class="mt-2">
-  <summary class="cursor-pointer font-body text-xs text-ink-2 dark:text-paper-2">Edit details</summary>
+<div class="hidden mt-2" data-edit-panel id="edit-panel-{{ link.id }}">
   <form
     class="mt-2 flex flex-col gap-2"
     hx-patch="/doc-library/fragments/links/{{ link.id }}"
@@ -42,5 +45,5 @@
     {{ input("category", label="Category", id="edit-category-" + link.id | string, value=link.category, required=True, minlength=1, attrs='maxlength="100"', placeholder="Category") }}
     {{ button("Save", type="submit", variant="primary") }}
   </form>
-</details>
+</div>
 {% endmacro %}

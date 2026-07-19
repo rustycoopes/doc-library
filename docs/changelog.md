@@ -27,3 +27,4 @@
 
 ### Fixed
 - 2026-07-19 — #17 Sidebar renders broken (moved to bottom, buttons invisible) — organizeme-chrome pin bumped from chrome-v0.9.0 to chrome-v0.12.1 — [PR #20](https://github.com/rustycoopes/doc-library/pull/20)
+- 2026-07-19 — #24 Add-link form moved to a collapsed section at the bottom of the page, tile/list rows now match the add-form's card background, and the per-link Edit control no longer has a redundant second open mechanism — [issue #24](https://github.com/rustycoopes/doc-library/issues/24)

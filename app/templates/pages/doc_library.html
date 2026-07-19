@@ -13,23 +13,28 @@
 <div class="mx-auto max-w-2xl">
   <h1 class="font-display text-2xl font-semibold text-ink dark:text-paper">Doc Library</h1>
 
-  <div class="mt-4">
-  {% call card_shell() %}
-    <form
-      class="flex flex-col gap-2"
-      hx-post="/doc-library/fragments/links"
-      hx-target="#doc-links-list"
-      hx-swap="outerHTML"
-      hx-on::after-request="if(event.detail.successful) this.reset()"
-    >
-      {{ input("title", label="Title", required=True, minlength=1, attrs='maxlength="200"', placeholder="Title") }}
-      {{ input("url", label="URL", type="url", required=True, placeholder="https://...") }}
-      {{ input("category", label="Category", required=True, minlength=1, attrs='maxlength="100"', placeholder="Category") }}
-      {{ button("Add link", type="submit", variant="primary") }}
-    </form>
-  {% endcall %}
-  </div>
-
   {% include "partials/doc_links_list.html" %}
+
+  <details class="mt-6">
+    <summary class="cursor-pointer font-body text-sm font-medium text-ink-2 dark:text-paper-2">
+      Add a link
+    </summary>
+    <div class="mt-2">
+    {% call card_shell() %}
+      <form
+        class="flex flex-col gap-2"
+        hx-post="/doc-library/fragments/links"
+        hx-target="#doc-links-list"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) this.reset()"
+      >
+        {{ input("title", label="Title", required=True, minlength=1, attrs='maxlength="200"', placeholder="Title") }}
+        {{ input("url", label="URL", type="url", required=True, placeholder="https://...") }}
+        {{ input("category", label="Category", required=True, minlength=1, attrs='maxlength="100"', placeholder="Category") }}
+        {{ button("Add link", type="submit", variant="primary") }}
+      </form>
+    {% endcall %}
+    </div>
+  </details>
 </div>
 {% endblock %}
