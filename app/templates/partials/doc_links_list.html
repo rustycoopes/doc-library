@@ -1,4 +1,5 @@
 {% import "partials/_doc_link_macros.html" as macros %}
+{% from "components/button.html" import button %}
 {# Grouped-by-category link list, re-rendered wholesale after every create/edit/delete/view-mode
    toggle. Also the page's initial content on first load (app/templates/pages/doc_library.html
    includes this same partial rather than duplicating the markup).
@@ -12,43 +13,30 @@
    present in the DOM, just hidden until expanded. #}
 <div id="doc-links-list" data-view-mode="{{ view_mode }}">
   <div class="mt-4 flex items-center gap-2" role="group" aria-label="View mode">
-    <button
-      type="button"
-      class="btn btn-xs {{ 'btn-primary' if view_mode == 'list' else 'btn-outline' }}"
-      hx-put="/doc-library/fragments/view-mode"
-      hx-vals='{"view_mode": "list"}'
-      hx-target="#doc-links-list"
-      hx-swap="outerHTML"
-      {% if view_mode == 'list' %}aria-current="true"{% endif %}
-    >
-      List
-    </button>
-    <button
-      type="button"
-      class="btn btn-xs {{ 'btn-primary' if view_mode == 'tiles' else 'btn-outline' }}"
-      hx-put="/doc-library/fragments/view-mode"
-      hx-vals='{"view_mode": "tiles"}'
-      hx-target="#doc-links-list"
-      hx-swap="outerHTML"
-      {% if view_mode == 'tiles' %}aria-current="true"{% endif %}
-    >
-      Tiles
-    </button>
+    {% for mode, mode_label in [("list", "List"), ("tiles", "Tiles")] %}
+    {% set base_attrs = 'hx-put="/doc-library/fragments/view-mode" hx-vals=\'{"view_mode": "' + mode + '"}\' hx-target="#doc-links-list" hx-swap="outerHTML"' %}
+    {{ button(
+      mode_label,
+      type="button",
+      variant="primary" if view_mode == mode else "ghost",
+      attrs=base_attrs + (' aria-current="true"' if view_mode == mode else "")
+    ) }}
+    {% endfor %}
   </div>
 
   {% if not grouped_links %}
-  <div class="mt-6 flex flex-col items-center gap-3 rounded-lg border border-dashed border-base-300 p-8 text-center">
-    <p class="font-medium">No links saved yet.</p>
-    <p class="text-sm opacity-70">Your saved documentation links will show up here.</p>
+  <div class="mt-6 flex flex-col items-center gap-3 rounded-lg border border-dashed border-ink-2/10 p-8 text-center dark:border-paper/10">
+    <p class="font-body font-medium text-ink dark:text-paper">No links saved yet.</p>
+    <p class="font-body text-sm text-ink-2 dark:text-paper-2">Your saved documentation links will show up here.</p>
   </div>
   {% elif view_mode == 'tiles' %}
   <div class="mt-6 flex flex-col gap-6">
     {% for category, links in grouped_links %}
     <section>
-      <h2 class="text-lg font-semibold">{{ category }}</h2>
+      <h2 class="font-display text-lg font-semibold text-ink dark:text-paper">{{ category }}</h2>
       <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {% for link in links %}
-        <div class="rounded-lg border border-base-300 p-3" id="doc-link-{{ link.id }}" data-doc-link>
+        <div class="rounded-lg border border-ink-2/10 p-3 dark:border-paper/10" id="doc-link-{{ link.id }}" data-doc-link>
           {{ macros.doc_link_body(link) }}
         </div>
         {% endfor %}
@@ -60,8 +48,8 @@
   <div class="mt-6 flex flex-col gap-6">
     {% for category, links in grouped_links %}
     <section>
-      <h2 class="text-lg font-semibold">{{ category }}</h2>
-      <ul class="mt-2 flex flex-col divide-y divide-base-300 rounded-lg border border-base-300">
+      <h2 class="font-display text-lg font-semibold text-ink dark:text-paper">{{ category }}</h2>
+      <ul class="mt-2 flex flex-col divide-y divide-ink-2/10 rounded-lg border border-ink-2/10 dark:divide-paper/10 dark:border-paper/10">
         {% for link in links %}
         <li class="p-3" id="doc-link-{{ link.id }}" data-doc-link>
           {{ macros.doc_link_body(link) }}

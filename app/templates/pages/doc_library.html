@@ -1,4 +1,7 @@
 {% extends "chrome_authenticated_base.html" %}
+{% from "components/card_shell.html" import card_shell %}
+{% from "components/input.html" import input %}
+{% from "components/button.html" import button %}
 
 {% block title %}Doc Library{% endblock %}
 
@@ -8,42 +11,24 @@
 
 {% block page %}
 <div class="mx-auto max-w-2xl">
-  <h1 class="text-2xl font-bold">Doc Library</h1>
+  <h1 class="font-display text-2xl font-semibold text-ink dark:text-paper">Doc Library</h1>
 
-  <form
-    class="mt-4 flex flex-col gap-2 rounded-lg border border-base-300 p-4"
-    hx-post="/doc-library/fragments/links"
-    hx-target="#doc-links-list"
-    hx-swap="outerHTML"
-    hx-on::after-request="if(event.detail.successful) this.reset()"
-  >
-    <input
-      type="text"
-      name="title"
-      required
-      minlength="1"
-      maxlength="200"
-      class="input input-bordered input-sm"
-      placeholder="Title"
-    />
-    <input
-      type="url"
-      name="url"
-      required
-      class="input input-bordered input-sm"
-      placeholder="https://..."
-    />
-    <input
-      type="text"
-      name="category"
-      required
-      minlength="1"
-      maxlength="100"
-      class="input input-bordered input-sm"
-      placeholder="Category"
-    />
-    <button type="submit" class="btn btn-sm btn-primary">Add link</button>
-  </form>
+  <div class="mt-4">
+  {% call card_shell() %}
+    <form
+      class="flex flex-col gap-2"
+      hx-post="/doc-library/fragments/links"
+      hx-target="#doc-links-list"
+      hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful) this.reset()"
+    >
+      {{ input("title", label="Title", required=True, minlength=1, attrs='maxlength="200"', placeholder="Title") }}
+      {{ input("url", label="URL", type="url", required=True, placeholder="https://...") }}
+      {{ input("category", label="Category", required=True, minlength=1, attrs='maxlength="100"', placeholder="Category") }}
+      {{ button("Add link", type="submit", variant="primary") }}
+    </form>
+  {% endcall %}
+  </div>
 
   {% include "partials/doc_links_list.html" %}
 </div>
