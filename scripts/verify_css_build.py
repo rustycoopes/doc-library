@@ -8,11 +8,24 @@ import sys
 from pathlib import Path
 
 APP_CSS = Path(__file__).resolve().parent.parent / "app" / "static" / "css" / "app.css"
-MIN_BYTES = 1000
+# A known-good build (doc-library#29, after pinning build_css.py's entry to
+# `source(none)` - see that file's comment) is ~29.5-29.7KB. Earlier builds measured ~36.8KB, but
+# that included false-positive utility classes Tailwind v4's default whole-repo auto-detection
+# scraped from prose/code examples in docs/ and .claude/agents/*.md (e.g. `fill-red-500`,
+# `animate-spin`, `[program:web]`) - never real content, and never present in Docker's build since
+# its image only ever contained app/ and scripts/. 25000 sits safely below the real clean baseline
+# while still catching a genuinely empty/near-empty build. Bump alongside deliberate, large
+# template additions; don't lower it to make a truncated build pass.
+MIN_BYTES = 25000
 
-# Only exists in the compiled output if the "Signal" @theme tokens were actually picked up - a
-# dropped tokens.css import or a broken @source glob both fail this check.
-CANARY_CLASS = ".bg-flame"
+# --color-cobalt is defined directly in organizeme_chrome's tokens.css and @import'd
+# unconditionally (not content-scanned) - present iff that import actually resolved, regardless of
+# whether any utility class in this app happens to reference it.
+CANARY_CLASS = "--color-cobalt:"
+
+# Present only if doc_link_tile's flip-card markup (app/templates/partials/_doc_link_macros.html)
+# was fully scanned - the specific class MIN_BYTES's regression floor exists to catch losing.
+FLIP_CARD_CANARY = "backface-visibility:hidden"
 
 
 def main() -> int:
@@ -35,6 +48,13 @@ def main() -> int:
         print(
             f"::error::canary class {CANARY_CLASS} is missing from app.css - "
             "design tokens likely failed to compile in"
+        )
+        return 1
+
+    if FLIP_CARD_CANARY not in css:
+        print(
+            f"::error::canary rule {FLIP_CARD_CANARY!r} is missing from app.css - "
+            "the build likely produced incomplete output (see this script's comment)"
         )
         return 1
 
