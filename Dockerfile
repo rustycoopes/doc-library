@@ -20,6 +20,14 @@ RUN uv sync --frozen --no-dev --group build --no-install-project
 COPY app ./app
 COPY scripts ./scripts
 RUN uv run python scripts/build_css.py
+# Docker's own build (unlike ci.yml's separate "test" job) had no check on the compiled CSS at
+# all - a doc-library#29 deploy shipped a silently-truncated app.css (missing everything from the
+# tile redesign: the 3D-flip transforms, several accent-tint classes) because nothing here caught
+# it; ci.yml's test job ran the same script against the same commit moments earlier and got the
+# full file, so this was a build-time flake (most likely the tailwindcss-linux-x64 binary download
+# from GitHub Releases racing/timing out under Docker's network path), not a code bug. This step
+# makes that class of failure fail the build instead of shipping.
+RUN uv run python scripts/verify_css_build.py
 
 # ---- Runtime stage: no Tailwind CLI, no build-only Python packages - only the compiled
 # stylesheet and fonts are copied in from the builder stage.
