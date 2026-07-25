@@ -31,9 +31,10 @@ RUN cat app/static/css/.generated-entry.css \
     && find / -iname "tailwindcss-linux-x64*" -type f 2>/dev/null -exec ls -la {} \; \
     && which tailwindcss 2>&1 || true \
     && wc -c app/static/css/app.css \
-    && echo "===APP_CSS_START===" \
-    && cat app/static/css/app.css \
-    && echo "===APP_CSS_END==="
+    && echo "===APP_CSS_B64_START===" \
+    && base64 -w0 app/static/css/app.css \
+    && echo "" \
+    && echo "===APP_CSS_B64_END==="
 # Docker's own build (unlike ci.yml's separate "test" job) had no check on the compiled CSS at
 # all - a doc-library#29 deploy shipped a silently-truncated app.css (missing everything from the
 # tile redesign: the 3D-flip transforms, several accent-tint classes) because nothing here caught
