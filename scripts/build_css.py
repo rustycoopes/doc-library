@@ -35,7 +35,12 @@ TAILWINDCSS_VERSION = "v4.3.3"
 def _write_entry_css() -> None:
     entry = "\n".join(
         [
-            '@import "tailwindcss";',
+            # source(none) disables Tailwind v4's automatic whole-repo content detection - without
+            # it, the scanner walks every non-gitignored file from cwd looking for class-shaped
+            # strings, including prose/example code in docs/ and .claude/agents/*.md, and bakes
+            # those false positives into the build. The explicit @source lines below are the only
+            # content this app's CSS should ever depend on.
+            '@import "tailwindcss" source(none);',
             f'@source "{APP_TEMPLATES_DIR.as_posix()}/**/*.html";',
             f'@source "{chrome_templates_dir().as_posix()}/**/*.html";',
             f'@import "{chrome_tokens_css_path().as_posix()}";',

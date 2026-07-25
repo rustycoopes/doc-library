@@ -20,28 +20,10 @@ RUN uv sync --frozen --no-dev --group build --no-install-project
 COPY app ./app
 COPY scripts ./scripts
 RUN uv run python scripts/build_css.py
-# TEMP DEBUG - remove before merge
-RUN cat app/static/css/.generated-entry.css \
-    && CHROME_DIR=$(uv run python -c "from organizeme_chrome.paths import chrome_templates_dir; print(chrome_templates_dir())") \
-    && echo "chrome templates dir: $CHROME_DIR" \
-    && find "$CHROME_DIR" -name "*.html" | sort \
-    && echo "app templates:" \
-    && find app/templates -name "*.html" | sort \
-    && echo "tailwindcss binary:" \
-    && find / -iname "tailwindcss-linux-x64*" -type f 2>/dev/null -exec ls -la {} \; \
-    && which tailwindcss 2>&1 || true \
-    && wc -c app/static/css/app.css \
-    && echo "===APP_CSS_B64_START===" \
-    && base64 -w0 app/static/css/app.css \
-    && echo "" \
-    && echo "===APP_CSS_B64_END==="
 # Docker's own build (unlike ci.yml's separate "test" job) had no check on the compiled CSS at
-# all - a doc-library#29 deploy shipped a silently-truncated app.css (missing everything from the
-# tile redesign: the 3D-flip transforms, several accent-tint classes) because nothing here caught
-# it; ci.yml's test job ran the same script against the same commit moments earlier and got the
-# full file, so this was a build-time flake (most likely the tailwindcss-linux-x64 binary download
-# from GitHub Releases racing/timing out under Docker's network path), not a code bug. This step
-# makes that class of failure fail the build instead of shipping.
+# all. Investigating an apparent doc-library#29 CSS mismatch turned up a real bug in
+# build_css.py's entry file (now fixed - see that file's comment on `source(none)`), but a broken
+# tokens.css import or emptied @source glob is still a real failure mode worth gating the build on.
 RUN uv run python scripts/verify_css_build.py
 
 # ---- Runtime stage: no Tailwind CLI, no build-only Python packages - only the compiled
