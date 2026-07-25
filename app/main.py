@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from organizeme_chrome.static_paths import static_mount_path
 
 # doc-library#22: nothing in this app ever configured the root logger, so every logger.info()/
 # .debug() call anywhere in app/ (including the registry refresh loop's own instrumentation) was
@@ -54,7 +55,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Doc Library", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+# static-asset-routing Slice 4 (organize-me#254/#255): the shared domain's Load Balancer only
+# routes this app's own static assets under its prefixed path - chrome_base.html's stylesheet
+# link (CHROME_STATIC_PREFIX) already points here. The bare `/static/*` mount stays alive
+# alongside it for one release (docs/adr/static-asset-routing-mount-transition.md in
+# organize-me), serving the same directory, so a tab that rendered from the pre-migration
+# revision doesn't break on its next asset fetch. Remove the bare mount in a fast-follow once
+# this has been live for a release.
+app.mount(
+    static_mount_path("doc-library"), StaticFiles(directory=BASE_DIR / "static"), name="static"
+)
+app.mount(
+    "/static", StaticFiles(directory=BASE_DIR / "static"), name="static_legacy_bare_path"
+)
 app.include_router(doc_library_router)
 app.include_router(doc_links_api_router)
 app.include_router(preferences_api_router)
