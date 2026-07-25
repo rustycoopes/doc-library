@@ -25,7 +25,7 @@
   </div>
 
   {% if not grouped_links %}
-  <div class="mt-6 flex flex-col items-center gap-3 rounded-lg border border-dashed border-ink-2/10 p-8 text-center dark:border-paper/10">
+  <div class="mt-6 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-ink-2/10 p-8 text-center dark:border-paper/10">
     <p class="font-body font-medium text-ink dark:text-paper">No links saved yet.</p>
     <p class="font-body text-sm text-ink-2 dark:text-paper-2">Your saved documentation links will show up here.</p>
   </div>
@@ -36,7 +36,7 @@
       <h2 class="font-display text-lg font-semibold text-ink dark:text-paper">{{ category }}</h2>
       <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {% for link in links %}
-        <div class="rounded-lg border border-ink-2/10 bg-paper p-3 dark:border-paper/10 dark:bg-ink-2" id="doc-link-{{ link.id }}" data-doc-link>
+        <div class="rounded-2xl border border-ink-2/10 bg-paper p-3 dark:border-paper/10 dark:bg-ink-2" id="doc-link-{{ link.id }}" data-doc-link>
           {{ macros.doc_link_body(link) }}
         </div>
         {% endfor %}
@@ -49,7 +49,7 @@
     {% for category, links in grouped_links %}
     <section>
       <h2 class="font-display text-lg font-semibold text-ink dark:text-paper">{{ category }}</h2>
-      <ul class="mt-2 flex flex-col divide-y divide-ink-2/10 rounded-lg border border-ink-2/10 bg-paper dark:divide-paper/10 dark:border-paper/10 dark:bg-ink-2">
+      <ul class="mt-2 flex flex-col divide-y divide-ink-2/10 rounded-2xl border border-ink-2/10 bg-paper dark:divide-paper/10 dark:border-paper/10 dark:bg-ink-2">
         {% for link in links %}
         <li class="p-3" id="doc-link-{{ link.id }}" data-doc-link>
           {{ macros.doc_link_body(link) }}
