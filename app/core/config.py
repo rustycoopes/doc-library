@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     # step explicitly so app/core/registry.py's _refresh_loop always logs which step was slow
     # rather than silently waiting on google-auth's default.
     registry_token_fetch_timeout_seconds: float = 10
+    # local-dev-environment Slice 6 (organize-me#265-#266): set by organize-me's local-dev
+    # launcher (never hand-added to a developer's own .env.local) alongside registry_host_url
+    # pointing at the Host's local port. When true, the registry refresh loop skips the OIDC
+    # metadata-server round trip entirely - see app/core/registry.py's
+    # _build_local_dev_token_provider(). Defaults False so QA/prod behavior is unchanged.
+    registry_local_dev_bypass: bool = False
 
     # Add app-specific settings below as they're needed (third-party API keys, feature flags,
     # etc.) — follow the empty-default-with-a-clear-runtime-error pattern used across the other
