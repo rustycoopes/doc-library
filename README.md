@@ -26,6 +26,11 @@ to `.env.local.example`, GitHub Actions secrets, or any `--set-secrets` flag by 
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
+To run alongside the Host and other hosted apps behind a shared local proxy (real registry-synced
+cross-app nav, one login for all apps, no Docker), use `organize-me`'s launcher instead — see its
+["Local development"](https://github.com/rustycoopes/organize-me/blob/main/docs/local-development.md)
+doc.
+
 ## Tests
 
 ```
