@@ -29,6 +29,11 @@ def test_importing_app_main_resolves_the_registry_source_without_raising() -> No
         "import app.main\n"
         "from app.core.registry import SELF_APP_ENTRY\n"
         "from organizeme_chrome.registry import list_apps\n"
+        # `==`, not `is` like organize-me's own test_registry_wiring.py: that test needs identity
+        # because its InProcessRegistrySource could still resolve to a value-equal-but-wrong
+        # fallback object. That failure mode doesn't exist here - Slice 3 deleted
+        # organizeme_chrome's compiled-in fallback, so a misconfigured source is a hard
+        # RuntimeError (caught below via returncode), not a silent wrong-but-equal value.
         "assert list_apps() == [SELF_APP_ENTRY], list_apps()\n"
     )
 
