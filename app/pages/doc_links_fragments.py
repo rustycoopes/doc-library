@@ -40,6 +40,21 @@ def _as_422(exc: ValidationError) -> HTTPException:
     )
 
 
+async def _validation_error_fragment(request: Request, exc: ValidationError) -> HTMLResponse:
+    """Renders validation failures as a visible HTML banner instead of a bare 422 - htmx doesn't
+    swap non-2xx responses by default, so a plain HTTPException left a create/edit submission
+    looking like nothing happened. The add/edit form templates pair this with an
+    `hx-on::response-error` handler that swaps this fragment into their own `[data-form-error]`
+    slot (doc-library#11)."""
+    message = "; ".join(err["msg"] for err in exc.errors(include_context=False))
+    return templates.TemplateResponse(
+        request,
+        "partials/_form_error.html",
+        {"message": message},
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+    )
+
+
 async def _render_list(request: Request, db: AsyncSession, user_id: uuid.UUID) -> HTMLResponse:
     """Re-renders the grouped grid/list in the user's *currently persisted* view mode - every
     mutation fragment (create/edit/delete) calls this, so a create/edit/delete doesn't silently
@@ -66,8 +81,10 @@ async def create_link_fragment(
     try:
         payload = DocLinkCreate(title=title, url=url, category=category)
     except ValidationError as exc:
-        raise _as_422(exc) from exc
-    db.add(DocLink(user_id=user_id, title=payload.title, url=payload.url, category=payload.category))
+        return await _validation_error_fragment(request, exc)
+    db.add(
+        DocLink(user_id=user_id, title=payload.title, url=payload.url, category=payload.category)
+    )
     await db.commit()
     return await _render_list(request, db, user_id)
 
@@ -88,7 +105,7 @@ async def update_link_fragment(
     try:
         payload = DocLinkUpdate(title=title, url=url, category=category)
     except ValidationError as exc:
-        raise _as_422(exc) from exc
+        return await _validation_error_fragment(request, exc)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(doc_link, field, value)
     await db.commit()

@@ -36,21 +36,29 @@ class DocLink(Base):
     )
 
 
+async def list_for_user(db: AsyncSession, user_id: uuid.UUID) -> list[DocLink]:
+    """The user's links ordered ``category, title`` - shared by the JSON API's flat list
+    (``app/api/v1/doc_links.py``) and ``list_grouped_by_category``'s Python-side grouping, so the
+    two don't hand-build the same ``WHERE``/``ORDER BY`` independently."""
+    result = await db.scalars(
+        select(DocLink).where(DocLink.user_id == user_id).order_by(DocLink.category, DocLink.title)
+    )
+    return list(result.all())
+
+
 async def list_grouped_by_category(
     db: AsyncSession, user_id: uuid.UUID
 ) -> list[tuple[str, list["DocLink"]]]:
-    """The user's links ordered ``category, title`` and grouped by category in Python.
+    """The user's links grouped by category in Python.
 
-    ``itertools.groupby`` only groups *consecutive* runs, so this relies on the query's own
+    ``itertools.groupby`` only groups *consecutive* runs, so this relies on ``list_for_user``'s
     ``ORDER BY category`` to make each category's rows contiguous - it does not re-sort.
     """
-    result = await db.scalars(
-        select(DocLink)
-        .where(DocLink.user_id == user_id)
-        .order_by(DocLink.category, DocLink.title)
-    )
-    links = list(result.all())
-    return [(category, list(group)) for category, group in itertools.groupby(links, key=lambda link: link.category)]
+    links = await list_for_user(db, user_id)
+    return [
+        (category, list(group))
+        for category, group in itertools.groupby(links, key=lambda link: link.category)
+    ]
 
 
 async def get_owned_doc_link(

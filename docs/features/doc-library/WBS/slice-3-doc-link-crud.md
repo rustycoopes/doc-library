@@ -128,3 +128,53 @@ grouping, a few over-length lines) filed to Intake as issue #11.
 **Live-verified** against `https://organizeme.qa.russcoopersoftware.com` post-deploy: unauthenticated
 `GET /api/v1/doc-links` and `POST /doc-library/fragments/links` both return 401 through the shared
 LB.
+
+## Delivered — Issue #11 follow-up
+
+**Issue:** #11 · **Branch:** `fix/slice-3-review-followups` · **Date:** 2026-07-28
+
+Closed out 5 of the 7 non-blocking suggestions filed above:
+
+1. **HTMX 422s now visible.** `app/pages/doc_links_fragments.py`'s create/edit fragment routes
+   render a validation failure as the shared `alert(variant="danger")` component
+   (`partials/_form_error.html`, status 422) instead of a bare `HTTPException`. Both the add-link
+   form (`doc_library.html`) and every doc link's inline edit form
+   (`_doc_link_macros.html`'s `doc_link_edit_form`) got a `<div data-form-error class="hidden">`
+   slot plus `hx-on::response-error="docLibraryShowFormError(event, this)"`, wired to a single
+   named function defined once in `doc_library.html`'s head block (not duplicated per-form
+   instance). The add form's existing `hx-on::after-request` reset handler now also re-hides the
+   error slot on a subsequent successful submit, so a stale error from an earlier failed attempt
+   doesn't linger after the user fixes it and resubmits.
+2. **URL scheme now enforced client-side.** Both URL inputs got
+   `pattern="https?://.+" title="Must start with http:// or https://"` via the shared `input()`
+   macro's `attrs=` escape hatch.
+3. **Duplicated query removed.** `app/models/doc_link.py` gained `list_for_user(db, user_id)`;
+   `list_grouped_by_category` and the JSON API's `GET /doc-links`
+   (`app/api/v1/doc_links.py`) both call it instead of each hand-building the same
+   `WHERE`/`ORDER BY`.
+5. **SRI added** to the htmx CDN `<script>` tag — sha384 computed from the actual served file and
+   cross-checked against jsdelivr's own published package-metadata hash for the same file.
+7. **Line-length cleanup** fell out of #1 and #3's refactors — verified no line in the three
+   originally-flagged files exceeds ~100 chars.
+
+**Not changed:**
+- Item 4 (missing `<label>`s) needed no code change — the shared `input()` component
+  (`organizeme_chrome`) already renders a `<label for=...>` for every field; verified directly
+  against the vendored template and confirmed no call site opts out.
+- Item 6 (case-sensitive category grouping) is left as-is, per the issue's own framing as a
+  product decision for a later slice rather than a bug.
+
+**Diverged from plan:** the code-review pass (code-review-master + code-quality-guardian) on this
+branch caught two real defects in the first pass at item 1 before merge — fixed in the same
+branch, not filed separately: the error banner used the `field_error` component (meant for a
+single field's own `aria-describedby`) instead of `alert` (the form/page-level banner primitive,
+with `role="alert"` already baked in and no field to tie to); and a hard-coded `id="form-error"`
+on that banner would have collided if the add form and an edit form both showed an error at once
+— fixed by switching to `alert()` without an `id` (it's optional there). Both fixes verified live
+in a browser against a locally seeded user, alongside the stale-banner fix.
+
+One further suggestion from that same review pass — the create/edit fragment routes only catch
+`pydantic.ValidationError`, not FastAPI's own `RequestValidationError` from `Form(...)` parsing
+(reachable only via a non-browser client sending a malformed request body, never through the
+actual UI, since all three fields are HTML `required`) — filed to Intake as issue #35 rather than
+expanding this branch's scope.

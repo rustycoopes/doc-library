@@ -6,7 +6,29 @@
 {% block title %}Doc Library{% endblock %}
 
 {% block head %}
-<script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.12/dist/htmx.min.js"></script>
+{#
+  integrity is htmx.org@1.9.12's published sha384 for this exact file (cross-checked against
+  jsdelivr's own package-metadata hash, doc-library#11) - pins the CDN script against tampering
+  or a jsdelivr compromise, since the browser refuses to execute a mismatch.
+#}
+<script
+  src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.12/dist/htmx.min.js"
+  integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2"
+  crossorigin="anonymous"
+></script>
+<script>
+  // Shared by the add-link form below and every doc link's inline edit form
+  // (partials/_doc_link_macros.html's doc_link_edit_form) via hx-on::response-error="
+  // docLibraryShowFormError(event, this)" - a named function so the identical handler isn't
+  // duplicated verbatim once per form instance (doc-library#11).
+  function docLibraryShowFormError(event, form) {
+    if (event.detail.xhr.status === 422) {
+      const el = form.querySelector('[data-form-error]');
+      el.innerHTML = event.detail.xhr.response;
+      el.classList.remove('hidden');
+    }
+  }
+</script>
 {% endblock %}
 
 {% block page %}
@@ -114,10 +136,12 @@
         hx-post="/doc-library/fragments/links"
         hx-target="#doc-links-list"
         hx-swap="outerHTML"
-        hx-on::after-request="if(event.detail.successful) this.reset()"
+        hx-on::after-request="if(event.detail.successful){this.reset();this.querySelector('[data-form-error]').classList.add('hidden')}"
+        hx-on::response-error="docLibraryShowFormError(event, this)"
       >
+        <div data-form-error class="hidden"></div>
         {{ input("title", label="Title", required=True, minlength=1, attrs='maxlength="200"', placeholder="Title") }}
-        {{ input("url", label="URL", type="url", required=True, placeholder="https://...") }}
+        {{ input("url", label="URL", type="url", required=True, placeholder="https://...", attrs='pattern="https?://.+" title="Must start with http:// or https://"') }}
         {{ input("category", label="Category", required=True, minlength=1, attrs='maxlength="100"', placeholder="Category") }}
         {{ button("Add link", type="submit", variant="primary") }}
       </form>

@@ -1,0 +1,11 @@
+{#
+  Validation-error banner swapped into a form's own `[data-form-error]` slot by
+  `docLibraryShowFormError` (see doc_library.html's head block and
+  app/pages/doc_links_fragments.py's `_validation_error_fragment`). Uses the shared `alert`
+  primitive (form/page-level message, role="alert" baked in) rather than `field_error` (meant for
+  a single field's own aria-describedby, which nothing here wires up) - no `id` passed, since this
+  partial is also rendered once per doc link's inline edit form and a hard-coded id would collide
+  if two forms on the page showed an error at once.
+#}
+{% from "components/alert.html" import alert %}
+{{ alert(message, variant="danger") }}
