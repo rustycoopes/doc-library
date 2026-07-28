@@ -8,12 +8,11 @@ a 403 would leak that the row exists but belongs to someone else.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_user_id
 from app.db.session import get_db
-from app.models.doc_link import DocLink, get_owned_doc_link
+from app.models.doc_link import DocLink, get_owned_doc_link, list_for_user
 from app.schemas.doc_link import DocLinkCreate, DocLinkResponse, DocLinkUpdate
 
 router = APIRouter(prefix="/api/v1", tags=["doc-links"])
@@ -24,10 +23,7 @@ async def list_doc_links(
     user_id: uuid.UUID = Depends(current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> list[DocLink]:
-    result = await db.scalars(
-        select(DocLink).where(DocLink.user_id == user_id).order_by(DocLink.category, DocLink.title)
-    )
-    return list(result.all())
+    return await list_for_user(db, user_id)
 
 
 @router.post("/doc-links", response_model=DocLinkResponse, status_code=status.HTTP_201_CREATED)
@@ -36,7 +32,9 @@ async def create_doc_link(
     user_id: uuid.UUID = Depends(current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> DocLink:
-    doc_link = DocLink(user_id=user_id, title=payload.title, url=payload.url, category=payload.category)
+    doc_link = DocLink(
+        user_id=user_id, title=payload.title, url=payload.url, category=payload.category
+    )
     db.add(doc_link)
     await db.commit()
     # created_at is a server_default (populated by Postgres on INSERT) - the session is

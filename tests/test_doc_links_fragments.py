@@ -64,6 +64,11 @@ async def test_create_fragment_rejects_invalid_url(
     )
 
     assert response.status_code == 422
+    # doc-library#11: a bare 422 with no body left the form looking like nothing happened, since
+    # htmx doesn't swap non-2xx responses by default - the fragment must render a visible error
+    # for the form's own hx-on::response-error handler to swap in.
+    assert 'role="alert"' in response.text
+    assert response.text.strip()
 
 
 async def test_edit_fragment_returns_rerendered_list_with_updated_link(
@@ -114,6 +119,7 @@ async def test_edit_fragment_rejects_invalid_url(
     )
 
     assert response.status_code == 422
+    assert 'role="alert"' in response.text
 
 
 async def test_edit_fragment_nonexistent_id_returns_404(

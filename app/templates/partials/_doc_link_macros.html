@@ -31,9 +31,11 @@
   hx-patch="/doc-library/fragments/links/{{ link.id }}"
   hx-target="#doc-links-list"
   hx-swap="outerHTML"
+  hx-on::response-error="docLibraryShowFormError(event, this)"
 >
+  <div data-form-error class="hidden"></div>
   {{ input("title", label="Title", id="edit-title-" + link.id | string, value=link.title, required=True, minlength=1, attrs='maxlength="200"', placeholder="Title") }}
-  {{ input("url", label="URL", id="edit-url-" + link.id | string, type="url", value=link.url, required=True, placeholder="https://...") }}
+  {{ input("url", label="URL", id="edit-url-" + link.id | string, type="url", value=link.url, required=True, placeholder="https://...", attrs='pattern="https?://.+" title="Must start with http:// or https://"') }}
   {{ input("category", label="Category", id="edit-category-" + link.id | string, value=link.category, required=True, minlength=1, attrs='maxlength="100"', placeholder="Category") }}
   {{ button("Save", type="submit", variant="primary") }}
 </form>
